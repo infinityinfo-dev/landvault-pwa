@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LandVault Secure PWA</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2e7d32">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--p:#2e7d32;--bg:#f5f5f5}
+*{box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);margin:0;padding:15px}
+.card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:15px}
+h2{color:var(--p);margin:0 0 12px;font-size:18px;border-bottom:2px solid #e0e0e0;padding-bottom:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fg{margin-bottom:10px;display:flex;flex-direction:column}
+label{font-size:12px;font-weight:600;margin-bottom:3px;color:#555}
+input,select{padding:9px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:100%}
+button{background:var(--p);color:#fff;border:none;padding:11px;border-radius:6px;font-weight:700;cursor:pointer;font-size:14px;width:100%}
+button:disabled{opacity:.5}
+button.sm{width:auto;padding:5px 10px;font-size:12px}
+button.red{background:#d32f2f}button.gray{background:#607d8b}button.org{background:#ff9800}
+#authGate{position:fixed;inset:0;background:#fff;z-index:1000;display:flex;justify-content:center;align-items:center;padding:15px}
+#app{display:none}
+.nav{display:flex;justify-content:space-between;align-items:center;background:var(--p);color:#fff;padding:10px 15px;margin:-15px -15px 10px}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px}
+.tabs button{width:auto;background:#fff;color:var(--p);border:1px solid var(--p);white-space:nowrap}
+.tabs button.on{background:var(--p);color:#fff}
+.tab{display:none}.tab.on{display:block}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px}
+.kpi{background:#fff;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.kpi b{display:block;font-size:17px;color:var(--p)}.kpi span{font-size:12px;color:#666}
+.map{height:260px;border-radius:8px;margin-bottom:10px}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px;border-bottom:1px solid #e0e0e0;text-align:left;white-space:nowrap}
+th{background:#e8f5e9;color:var(--p)}
+td.n,th.n{text-align:right}
+.pos{color:#2e7d32}.neg{color:#d32f2f}
+.bar{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12px}
+.bar i{display:block;height:12px;border-radius:3px;min-width:2px}
+.bar span{width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #eee;font-size:13px}
+.row2{display:flex;gap:8px;margin-bottom:10px}
+@media print{#authGate,.nav,.tabs,.noprint{display:none!important}.tab{display:none!important}#tab-reports{display:block!important}}
+</style>
+</head>
+<body>
+
+<div id="authGate"><div class="card" style="width:100%;max-width:360px">
+  <h2 style="text-align:center">🔐 LandVault Login</h2>
+  <div class="fg"><label for="authEmail">Registered Email</label><input type="email" id="authEmail" autocomplete="username"></div>
+  <div class="fg"><label for="authPassword">Secure Password</label><input type="password" id="authPassword" autocomplete="current-password"></div>
+  <button id="loginBtn" onclick="handleLogin()">Unlock Dashboard</button>
+  <p id="authError" style="color:red;font-size:12px;text-align:center"></p>
+</div></div>
+
+<div id="app">
+ <div class="nav"><span id="userGreeting" style="font-weight:700;font-size:14px"></span>
+  <button class="sm red" onclick="handleLogout()">Sign Out</button></div>
+ <div class="tabs" id="tabs">
+  <button data-t="dash" class="on">📊 Dashboard</button>
+  <button data-t="projects">🏞️ Projects</button>
+  <button data-t="holders">👥 Shareholders</button>
+  <button data-t="reports">📑 Reports</button>
+  <button data-t="docs">📄 Documents</button>
+ </div>
+
+ <!-- DASHBOARD -->
+ <div id="tab-dash" class="tab on">
+  <div class="kpis" id="kpis"></div>
+  <div class="card"><h2>📍 All Project Locations</h2><div id="dashMap" class="map"></div></div>
+  <div class="card"><h2>💰 Profit by Project</h2><div id="profitBars"></div></div>
+  <div class="card"><h2>👥 Top Shareholders (profit share)</h2><div id="topHolders"></div></div>
+ </div>
+
+ <!-- PROJECTS -->
+ <div id="tab-projects" class="tab">
+  <div class="card"><h2>➕ Add Project</h2>
+   <div class="fg"><label>Project Name *</label><input id="pName" placeholder="e.g., Chittoor Layout Phase 1"></div>
+   <div class="grid">
+    <div class="fg"><label>District</label><input id="pDistrict" value="Vellore"></div>
+    <div class="fg"><label>Taluk</label><input id="pTaluk" value="Arakkonam"></div>
+    <div class="fg"><label>Village</label><input id="pVillage" value="Chittoor"></div>
+    <div class="fg"><label>Survey No.</label><input id="pSurvey" placeholder="145/2B"></div>
+    <div class="fg"><label>Area</label><input id="pArea" type="number" min="0" step="any"></div>
+    <div class="fg"><label>Unit</label><select id="pUnit"><option value="cent">Cent</option><option value="ground">Ground</option><option value="acre">Acre</option><option value="sqft">Sq ft</option></select></div>
+    <div class="fg"><label>Purchase Cost (₹)</label><input id="pCost" type="number" min="0" step="any"></div>
+    <div class="fg"><label>Other Expenses (₹)</label><input id="pExp" type="number" min="0" step="any"></div>
+    <div class="fg"><label>Sale Value (₹)</label><input id="pSale" type="number" min="0" step="any"></div>
+    <div class="fg"><label>Status</label><select id="pStatus"><option>Active</option><option>Sold</option></select></div>
+   </div>
+   <label>📍 Location — tap the map to drop a pin</label>
+   <div id="pickMap" class="map"></div>
+   <div class="row2"><button class="sm gray" onclick="useGPS()">📡 Use my location</button><button class="sm gray" onclick="clearPin()">✖ Clear pin</button></div>
+   <div class="grid">
+    <div class="fg"><label>Latitude</label><input id="pLat" type="number" step="any" onchange="pinFromInputs()"></div>
+    <div class="fg"><label>Longitude</label><input id="pLng" type="number" step="any" onchange="pinFromInputs()"></div>
+   </div>
+   <button id="saveProjBtn" onclick="saveProject()">Save Project</button>
+   <div id="projMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
+  </div>
+  <div class="card"><h2>🏞️ Projects</h2><div id="projList"></div></div>
+ </div>
+
+ <!-- SHAREHOLDERS -->
+ <div id="tab-holders" class="tab">
+  <div class="card"><h2>➕ Add Shareholder</h2>
+   <div class="fg"><label>Project *</label><select id="hProject"></select></div>
+   <div class="grid">
+    <div class="fg"><label>Name *</label><input id="hName"></div>
+    <div class="fg"><label>Phone</label><input id="hPhone" type="tel"></div>
+    <div class="fg"><label>Share % *</label><input id="hPct" type="number" min="0" max="100" step="any"></div>
+    <div class="fg"><label>Invested (₹)</label><input id="hInv" type="number" min="0" step="any"></div>
+   </div>
+   <button onclick="saveHolder()">Save Shareholder</button>
+   <div id="holderMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
+  </div>
+  <div class="card"><h2>👥 Shareholders</h2><div id="holderList"></div></div>
+ </div>
+
+ <!-- REPORTS -->
+ <div id="tab-reports" class="tab">
+  <div class="card"><h2>📑 Reports</h2>
+   <div class="grid noprint">
+    <div class="fg"><label>Report</label><select id="rType" onchange="renderReport()">
+      <option value="project">Project-wise</option><option value="area">Area-wise</option>
+      <option value="profit">Profit-wise</option><option value="holder">Shareholder-wise</option></select></div>
+    <div class="fg" id="rLevelBox" style="display:none"><label>Group by</label><select id="rLevel" onchange="renderReport()">
+      <option value="district">District</option><option value="taluk">Taluk</option><option value="village">Village</option></select></div>
+   </div>
+   <div class="row2 noprint"><button class="sm org" onclick="downloadCSV()">⬇ CSV</button><button class="sm gray" onclick="window.print()">🖨 Print / PDF</button></div>
+   <div class="tw" id="reportOut"></div>
+  </div>
+ </div>
+
+ <!-- DOCUMENTS -->
+ <div id="tab-docs" class="tab">
+  <div class="card"><h2>📄 Document Details & Drive Links</h2>
+   <div class="row2"><button class="sm gray" onclick="window.open('https://drive.google.com','_blank','noopener')">📂 Open Google Drive</button><button class="sm gray" onclick="openPortal()">🔍 Patta / A-Register</button></div>
+   <div class="fg"><label>Project</label><select id="dProject"></select></div>
+   <div class="fg"><label>Document Name *</label><input id="dName" placeholder="e.g., Patta, Sale Deed, EC"></div>
+   <div class="grid">
+    <div class="fg"><label>Document / Patta No.</label><input id="dNo"></div>
+    <div class="fg"><label>Registered (Reg.) No.</label><input id="dReg"></div>
+    <div class="fg"><label>EC No.</label><input id="dEc"></div>
+    <div class="fg"><label>ஆதார் / Aadhaar No.</label><input id="dAadhaar" inputmode="numeric" maxlength="14" placeholder="12 digits"></div>
+   </div>
+   <div class="fg"><label>Aadhaar Holder Name</label><input id="dAName"></div>
+   <div class="fg"><label>Google Drive Share Link (optional)</label><input id="dLink" type="url" placeholder="https://drive.google.com/..."></div>
+   <button id="uploadBtn" class="org" onclick="saveDocLink()">Save Document</button>
+   <div id="statusBox" style="margin-top:10px;font-weight:700;color:var(--p);text-align:center"></div>
+  </div>
+  <div class="card"><h2>🗂️ Saved Documents</h2><div id="docList"></div></div>
+ </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCeTbSRbBf1ow2PfclzNxfCjGZQnpBF9z8",
+  authDomain: "landvault-535e7.firebaseapp.com",
+  projectId: "landvault-535e7",
+  storageBucket: "landvault-535e7.firebasestorage.app",
+  messagingSenderId: "407795831544",
+  appId: "1:407795831544:web:fa1483a989609c9f54a10d"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth(), db = firebase.firestore();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = id => parseFloat($(id).value) || 0;
+const inr = n => (n < 0 ? '-₹' : '₹') + Math.abs(Math.round(n || 0)).toLocaleString('en-IN');
+const UNIT = { sqft: 1, cent: 435.6, ground: 2400, acre: 43560 };
+const sqft = p => (p.areaValue || 0) * (UNIT[p.areaUnit] || 1);
+const cost = p => (p.purchaseCost || 0) + (p.expenses || 0);
+const profit = p => (p.saleValue || 0) - cost(p);
+const cls = n => n < 0 ? 'neg' : 'pos';
+
+let projects = [], holders = [], docs = [], unsubs = [];
+let pickMap, pickMarker, dashMap, dashLayer, curTab = 'dash', lastCSV = [];
+
+/* ---------- AUTH ---------- */
+auth.onAuthStateChanged(user => {
+  if (user) {
+    $('authGate').style.display = 'none'; $('app').style.display = 'block';
+    $('userGreeting').innerText = '🔐 ' + user.email;
+    writeAuditLog('USER_SESSION_STARTED', 'SYSTEM');
+    subscribe(); initPickMap();
+  } else {
+    $('authGate').style.display = 'flex'; $('app').style.display = 'none';
+    unsubs.forEach(u => u()); unsubs = [];
+  }
+});
+async function handleLogin() {
+  const email = $('authEmail').value.trim(), pass = $('authPassword').value;
+  $('authError').innerText = '';
+  if (!email || !pass) { $('authError').innerText = 'Enter email and password.'; return; }
+  $('loginBtn').disabled = true;
+  try { await auth.signInWithEmailAndPassword(email, pass); $('authPassword').value = ''; }
+  catch (e) { $('authError').innerText = 'Access Denied: Invalid Credentials.'; }
+  finally { $('loginBtn').disabled = false; }
+}
+async function handleLogout() { await writeAuditLog('USER_SESSION_ENDED', 'SYSTEM'); await auth.signOut(); }
+async function writeAuditLog(action, asset) {
+  const u = auth.currentUser; if (!u) return;
+  try { await db.collection('activity_logs').add({ userEmail: u.email, uid: u.uid, actionPerformed: action, targetAsset: asset, timestamp: firebase.firestore.FieldValue.serverTimestamp() }); }
+  catch (e) { console.error(e); }
+}
+
+/* ---------- DATA ---------- */
+function subscribe() {
+  const sub = (name, setter) => unsubs.push(db.collection(name).onSnapshot(
+    s => { setter(s.docs.map(d => ({ id: d.id, ...d.data() }))); refresh(); },
+    e => console.error(name, e)));
+  sub('projects', a => projects = a.sort((x, y) => (x.name || '').localeCompare(y.name || '')));
+  sub('shareholders', a => holders = a);
+  sub('properties', a => docs = a.sort((x, y) => (y.timestamp?.seconds || 0) - (x.timestamp?.seconds || 0)));
+}
+function refresh() {
+  fillSelects(); renderProjects(); renderHolders(); renderDocs();
+  if (curTab === 'dash') renderDash();
+  if (curTab === 'reports') renderReport();
+}
+const projName = id => (projects.find(p => p.id === id) || {}).name || '(deleted)';
+const holdersOf = id => holders.filter(h => h.projectId === id);
+
+/* ---------- TABS ---------- */
+$('tabs').addEventListener('click', e => {
+  const t = e.target.dataset.t; if (!t) return;
+  curTab = t;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.id === 'tab-' + t));
+  if (t === 'dash') renderDash();
+  if (t === 'reports') renderReport();
+  if (t === 'projects') setTimeout(() => pickMap && pickMap.invalidateSize(), 100);
+});
+function fillSelects() {
+  const opts = projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') || '<option value="">Add a project first</option>';
+  ['hProject', 'dProject'].forEach(id => { const v = $(id).value; $(id).innerHTML = opts; if (v) $(id).value = v; });
+}
+
+/* ---------- MAPS ---------- */
+const OSM = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const ATTR = '&copy; OpenStreetMap';
+function initPickMap() {
+  if (pickMap) return;
+  pickMap = L.map('pickMap').setView([12.92, 79.13], 9);
+  L.tileLayer(OSM, { maxZoom: 19, attribution: ATTR }).addTo(pickMap);
+  pickMap.on('click', e => setPin(e.latlng.lat, e.latlng.lng));
+}
+function setPin(lat, lng) {
+  $('pLat').value = lat.toFixed(6); $('pLng').value = lng.toFixed(6);
+  if (pickMarker) pickMarker.setLatLng([lat, lng]); else pickMarker = L.marker([lat, lng]).addTo(pickMap);
+}
+function pinFromInputs() {
+  const lat = parseFloat($('pLat').value), lng = parseFloat($('pLng').value);
+  if (isFinite(lat) && isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) { setPin(lat, lng); pickMap.setView([lat, lng], 16); }
+}
+function clearPin() { if (pickMarker) { pickMap.removeLayer(pickMarker); pickMarker = null; } $('pLat').value = ''; $('pLng').value = ''; }
+function useGPS() {
+  if (!navigator.geolocation) return alert('GPS not supported.');
+  navigator.geolocation.getCurrentPosition(
+    p => { setPin(p.coords.latitude, p.coords.longitude); pickMap.setView([p.coords.latitude, p.coords.longitude], 17); },
+    () => alert('Could not get location. Allow location access or tap the map.'), { enableHighAccuracy: true, timeout: 15000 });
+}
+
+/* ---------- PROJECTS ---------- */
+async function saveProject() {
+  const name = $('pName').value.trim();
+  if (!name) return alert('Project name is required.');
+  const lat = parseFloat($('pLat').value), lng = parseFloat($('pLng').value);
+  const u = auth.currentUser; $('saveProjBtn').disabled = true;
+  try {
+    await db.collection('projects').add({
+      name, district: $('pDistrict').value.trim(), taluk: $('pTaluk').value.trim(), village: $('pVillage').value.trim(),
+      surveyNo: $('pSurvey').value.trim(), areaValue: num('pArea'), areaUnit: $('pUnit').value,
+      purchaseCost: num('pCost'), expenses: num('pExp'), saleValue: num('pSale'), status: $('pStatus').value,
+      lat: isFinite(lat) ? lat : null, lng: isFinite(lng) ? lng : null,
+      createdBy: u.email, uid: u.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await writeAuditLog('ADD_PROJECT', name);
+    ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale'].forEach(i => $(i).value = ''); clearPin();
+    $('projMsg').innerText = '✅ Project saved'; setTimeout(() => $('projMsg').innerText = '', 3000);
+  } catch (e) { console.error(e); $('projMsg').innerText = 'Save failed. Check security rules.'; }
+  finally { $('saveProjBtn').disabled = false; }
+}
+function renderProjects() {
+  $('projList').innerHTML = projects.map(p => {
+    const pr = profit(p);
+    const map = p.lat != null ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">🗺 Map</a>` : '';
+    return `<div class="item"><div><b>${esc(p.name)}</b> <small>(${esc(p.status)})</small><br>
+      <small>${esc(p.village)}, ${esc(p.taluk)}, ${esc(p.district)} · Sy ${esc(p.surveyNo || '-')} · ${p.areaValue || 0} ${esc(p.areaUnit)}${map}</small><br>
+      <small>Cost ${inr(cost(p))} · Sale ${inr(p.saleValue)} · Profit <span class="${cls(pr)}">${inr(pr)}</span></small></div>
+      <button class="sm red" onclick="delProject('${p.id}')">Delete</button></div>`;
+  }).join('') || '<small>No projects yet.</small>';
+}
+async function delProject(id) {
+  if (!confirm('Delete this project and its shareholders?')) return;
+  try {
+    const b = db.batch(); b.delete(db.collection('projects').doc(id));
+    holdersOf(id).forEach(h => b.delete(db.collection('shareholders').doc(h.id)));
+    await b.commit(); writeAuditLog('DELETE_PROJECT', projName(id));
+  } catch (e) { alert('Delete failed.'); }
+}
+
+/* ---------- SHAREHOLDERS ---------- */
+async function saveHolder() {
+  const pid = $('hProject').value, name = $('hName').value.trim(), pct = num('hPct');
+  if (!pid || !name) return alert('Select a project and enter a name.');
+  if (pct <= 0 || pct > 100) return alert('Share % must be between 0 and 100.');
+  const used = holdersOf(pid).reduce((s, h) => s + (h.sharePct || 0), 0);
+  if (used + pct > 100.0001) return alert(`Total share would be ${used + pct}%. Only ${(100 - used).toFixed(2)}% left.`);
+  try {
+    await db.collection('shareholders').add({ projectId: pid, name, phone: $('hPhone').value.trim(), sharePct: pct, invested: num('hInv'),
+      createdBy: auth.currentUser.email, uid: auth.currentUser.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+    writeAuditLog('ADD_SHAREHOLDER', name);
+    ['hName', 'hPhone', 'hPct', 'hInv'].forEach(i => $(i).value = '');
+    $('holderMsg').innerText = '✅ Saved'; setTimeout(() => $('holderMsg').innerText = '', 3000);
+  } catch (e) { console.error(e); alert('Save failed. Check security rules.'); }
+}
+function renderHolders() {
+  $('holderList').innerHTML = projects.map(p => {
+    const hs = holdersOf(p.id); if (!hs.length) return '';
+    const tot = hs.reduce((s, h) => s + (h.sharePct || 0), 0), pr = profit(p);
+    return `<b>${esc(p.name)}</b> <small>(${tot.toFixed(1)}% allotted)</small>` + hs.map(h =>
+      `<div class="item"><div>${esc(h.name)} <small>${esc(h.phone || '')}</small><br>
+       <small>${h.sharePct}% · Invested ${inr(h.invested)} · Profit share <span class="${cls(pr)}">${inr(pr * h.sharePct / 100)}</span></small></div>
+       <button class="sm red" onclick="delHolder('${h.id}')">✕</button></div>`).join('');
+  }).join('') || '<small>No shareholders yet.</small>';
+}
+async function delHolder(id) { if (confirm('Remove shareholder?')) try { await db.collection('shareholders').doc(id).delete(); } catch (e) { alert('Failed.'); } }
+
+/* ---------- DASHBOARD ---------- */
+function renderDash() {
+  const T = projects.reduce((a, p) => ({ area: a.area + sqft(p), cost: a.cost + cost(p), sale: a.sale + (p.saleValue || 0), pr: a.pr + profit(p) }), { area: 0, cost: 0, sale: 0, pr: 0 });
+  const k = (v, l, c = '') => `<div class="kpi"><b class="${c}">${v}</b><span>${l}</span></div>`;
+  $('kpis').innerHTML = k(projects.length, 'Projects') + k((T.area / 43560).toFixed(2) + ' ac', 'Total Area (' + Math.round(T.area).toLocaleString('en-IN') + ' sq ft)')
+    + k(inr(T.cost), 'Total Investment') + k(inr(T.sale), 'Total Sale Value') + k(inr(T.pr), 'Net Profit', cls(T.pr))
+    + k(new Set(holders.map(h => h.name.toLowerCase())).size, 'Shareholders');
+  const max = Math.max(1, ...projects.map(p => Math.abs(profit(p))));
+  $('profitBars').innerHTML = projects.map(p => { const v = profit(p);
+    return `<div class="bar"><span>${esc(p.name)}</span><i style="width:${Math.abs(v) / max * 55}%;background:${v < 0 ? '#d32f2f' : '#2e7d32'}"></i><small>${inr(v)}</small></div>`; }).join('') || '<small>No data.</small>';
+  const m = holderTotals().sort((a, b) => b.profit - a.profit).slice(0, 5);
+  $('topHolders').innerHTML = m.map(h => `<div class="item"><span>${esc(h.name)}</span><b class="${cls(h.profit)}">${inr(h.profit)}</b></div>`).join('') || '<small>No data.</small>';
+  if (!dashMap) { dashMap = L.map('dashMap').setView([12.92, 79.13], 8); L.tileLayer(OSM, { maxZoom: 19, attribution: ATTR }).addTo(dashMap); dashLayer = L.layerGroup().addTo(dashMap); }
+  setTimeout(() => dashMap.invalidateSize(), 100);
+  dashLayer.clearLayers(); const pts = [];
+  projects.filter(p => p.lat != null).forEach(p => { pts.push([p.lat, p.lng]);
+    L.marker([p.lat, p.lng]).addTo(dashLayer).bindPopup(`<b>${esc(p.name)}</b><br>${esc(p.village)}<br>Profit: ${inr(profit(p))}`); });
+  if (pts.length) dashMap.fitBounds(pts, { padding: [30, 30], maxZoom: 14 });
+}
+function holderTotals() {
+  const m = {};
+  holders.forEach(h => { const p = projects.find(x => x.id === h.projectId); if (!p) return;
+    const key = h.name.trim().toLowerCase(); const r = m[key] = m[key] || { name: h.name, phone: h.phone, projs: new Set(), invested: 0, profit: 0 };
+    r.projs.add(p.name); r.invested += h.invested || 0; r.profit += profit(p) * (h.sharePct || 0) / 100; });
+  return Object.values(m);
+}
+
+/* ---------- REPORTS ---------- */
+function renderReport() {
+  const t = $('rType').value; $('rLevelBox').style.display = t === 'area' ? 'flex' : 'none';
+  let head = [], rows = [];
+  if (t === 'project') {
+    head = ['Project', 'Location', 'Area (sq ft)', 'Cost', 'Sale', 'Profit', 'Holders'];
+    rows = projects.map(p => [p.name, `${p.village}, ${p.taluk}`, Math.round(sqft(p)), cost(p), p.saleValue || 0, profit(p), holdersOf(p.id).length]);
+  } else if (t === 'area') {
+    const lv = $('rLevel').value, g = {};
+    projects.forEach(p => { const k = p[lv] || '(blank)'; const r = g[k] = g[k] || [k, 0, 0, 0, 0, 0];
+      r[1]++; r[2] += sqft(p); r[3] += cost(p); r[4] += p.saleValue || 0; r[5] += profit(p); });
+    head = [lv[0].toUpperCase() + lv.slice(1), 'Projects', 'Area (sq ft)', 'Cost', 'Sale', 'Profit'];
+    rows = Object.values(g).map(r => { r[2] = Math.round(r[2]); return r; });
+  } else if (t === 'profit') {
+    head = ['Project', 'Cost', 'Sale', 'Profit', 'Margin %'];
+    rows = projects.map(p => [p.name, cost(p), p.saleValue || 0, profit(p), cost(p) ? +(profit(p) / cost(p) * 100).toFixed(1) : 0]).sort((a, b) => b[3] - a[3]);
+  } else {
+    head = ['Shareholder', 'Phone', 'Projects', 'Invested', 'Profit Share'];
+    rows = holderTotals().map(h => [h.name, h.phone || '', [...h.projs].join('; '), h.invested, h.profit]).sort((a, b) => b[4] - a[4]);
+  }
+  const money = new Set(['Cost', 'Sale', 'Profit', 'Invested', 'Profit Share']);
+  const isN = h => money.has(h) || /Area|Projects|Holders|%/.test(h) && h !== 'Projects' || h === 'Projects' && t === 'area';
+  lastCSV = [head, ...rows];
+  const fmt = (v, h) => money.has(h) ? `<span class="${/Profit/.test(h) ? cls(v) : ''}">${inr(v)}</span>` : (typeof v === 'number' ? v.toLocaleString('en-IN') : esc(v));
+  const tot = head.map((h, i) => money.has(h) || h === 'Area (sq ft)' ? rows.reduce((s, r) => s + (r[i] || 0), 0) : null);
+  $('reportOut').innerHTML = rows.length ? `<table><tr>${head.map(h => `<th class="${isN(h) ? 'n' : ''}">${h}</th>`).join('')}</tr>` +
+    rows.map(r => `<tr>${r.map((v, i) => `<td class="${isN(head[i]) ? 'n' : ''}">${fmt(v, head[i])}</td>`).join('')}</tr>`).join('') +
+    `<tr><th>Total</th>${head.slice(1).map((h, i) => `<th class="n">${tot[i + 1] == null ? '' : (money.has(h) ? inr(tot[i + 1]) : Math.round(tot[i + 1]).toLocaleString('en-IN'))}</th>`).join('')}</tr></table>` : '<small>No data.</small>';
+}
+function downloadCSV() {
+  const csv = lastCSV.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
+  a.download = `landvault_${$('rType').value}_report.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ---------- DOCUMENTS ---------- */
+function openPortal() {
+  const p = projects.find(x => x.id === $('dProject').value);
+  writeAuditLog('VIEW_GOVT_PORTAL', p ? p.surveyNo || p.name : 'Unknown');
+  window.open('https://eservices.tn.gov.in/eservicesnew/land/chitta.html', '_blank', 'noopener');
+}
+async function saveDocLink() {
+  const p = projects.find(x => x.id === $('dProject').value), u = auth.currentUser;
+  const name = $('dName').value.trim(), link = $('dLink').value.trim();
+  if (!p) return alert('Select a project first.');
+  if (!name) return alert('Enter a document name.');
+  if (link && !/^https:\/\//i.test(link)) return alert('Drive link must start with https://');
+  const aad = $('dAadhaar').value.replace(/[\s-]/g, '');
+  if (aad && !/^\d{12}$/.test(aad)) return alert('Aadhaar must be exactly 12 digits.');
+  const docNo = $('dNo').value.trim(), regNo = $('dReg').value.trim(), ecNo = $('dEc').value.trim();
+  if (!link && !docNo && !regNo && !ecNo && !aad) return alert('Enter at least one number or a Drive link.');
+  $('uploadBtn').disabled = true;
+  try {
+    await db.collection('properties').add({ projectId: p.id, projectName: p.name, surveyNumber: p.surveyNo || '', fileName: name,
+      district: p.district, taluk: p.taluk, village: p.village, documentVaultUrl: link, docNo, regNo, ecNo, aadhaarNo: aad, aadhaarName: $('dAName').value.trim(), createdBy: u.email, uid: u.uid,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+    await writeAuditLog('ADD_DOCUMENT_LINK', p.surveyNo || p.name);
+    ['dName','dNo','dReg','dEc','dAadhaar','dAName','dLink'].forEach(i => $(i).value = '');
+    $('statusBox').innerText = '✅ Saved'; setTimeout(() => $('statusBox').innerText = '', 3000);
+  } catch (e) { console.error(e); $('statusBox').innerText = 'Save failed. Check security rules.'; }
+  finally { $('uploadBtn').disabled = false; }
+}
+async function delDoc(id) { if (confirm('Remove this link?')) try { await db.collection('properties').doc(id).delete(); } catch (e) { alert('Failed.'); } }
+const maskA = a => 'XXXX XXXX ' + a.slice(-4);
+function showA(id, el) { const d = docs.find(x => x.id === id); if (!d) return; const on = el.dataset.on === '1'; el.dataset.on = on ? '' : '1';
+  el.previousElementSibling.textContent = on ? maskA(d.aadhaarNo) : d.aadhaarNo.replace(/(\d{4})(?=\d)/g, '$1 '); el.textContent = on ? 'Show' : 'Hide'; }
+function renderDocs() {
+  $('docList').innerHTML = docs.map(d => {
+    const nums = [d.docNo && 'Doc No: ' + esc(d.docNo), d.regNo && 'Reg No: ' + esc(d.regNo), d.ecNo && 'EC No: ' + esc(d.ecNo)].filter(Boolean).join(' · ');
+    const aad = d.aadhaarNo ? `Aadhaar${d.aadhaarName ? ' (' + esc(d.aadhaarName) + ')' : ''}: <span>${maskA(d.aadhaarNo)}</span> <a href="#" onclick="showA('${d.id}',this);return false">Show</a>` : '';
+    return `<div class="item"><div><b>${esc(d.fileName || 'Document')}</b> <small>${esc(d.projectName || '')}</small>
+      ${nums ? '<br><small>' + nums + '</small>' : ''}${aad ? '<br><small>' + aad + '</small>' : ''}</div>
+      <div style="display:flex;gap:6px;align-items:center">${d.documentVaultUrl ? `<a href="${esc(d.documentVaultUrl)}" target="_blank" rel="noopener">Open</a>` : ''}
+      <button class="sm red" onclick="delDoc('${d.id}')">✕</button></div></div>`; }).join('') || '<small>No documents yet.</small>';
+}
+
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(console.error));
+</script>
+</body>
+</html>
