@@ -96,6 +96,21 @@ td.n,th.n{text-align:right}
     <div class="fg"><label>Sale Value (₹)</label><input id="pSale" type="number" min="0" step="any"></div>
     <div class="fg"><label>Status</label><select id="pStatus"><option>Active</option><option>Sold</option></select></div>
    </div>
+   <label>📐 Measurements — four corners A, B, C, D</label>
+   <div class="grid">
+    <div class="fg"><label>A → B</label><input id="mAB" type="number" min="0" step="any"></div>
+    <div class="fg"><label>B → C</label><input id="mBC" type="number" min="0" step="any"></div>
+    <div class="fg"><label>C → D</label><input id="mCD" type="number" min="0" step="any"></div>
+    <div class="fg"><label>D → A</label><input id="mDA" type="number" min="0" step="any"></div>
+   </div>
+   <div class="fg"><label>Measurement Unit</label><select id="mUnit"><option value="ft">Feet</option><option value="m">Meter</option></select></div>
+   <label>🧭 Nearby sites / boundaries</label>
+   <div class="grid">
+    <div class="fg"><label>North</label><input id="bN" placeholder="Site / owner / road"></div>
+    <div class="fg"><label>South</label><input id="bS"></div>
+    <div class="fg"><label>East</label><input id="bE"></div>
+    <div class="fg"><label>West</label><input id="bW"></div>
+   </div>
    <label>📍 Location — tap the map to drop a pin</label>
    <div id="pickMap" class="map"></div>
    <div class="row2"><button class="sm gray" onclick="useGPS()">📡 Use my location</button><button class="sm gray" onclick="clearPin()">✖ Clear pin</button></div>
@@ -239,7 +254,7 @@ $('tabs').addEventListener('click', e => {
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.id === 'tab-' + t));
   if (t === 'dash') renderDash();
   if (t === 'reports') renderReport();
-  if (t === 'projects') setTimeout(() => pickMap && pickMap.invalidateSize(), 100);
+  if (t === 'projects') [100, 500, 1200].forEach(ms => setTimeout(() => { if (pickMap) { pickMap.invalidateSize(); pickMap.setView(pickMap.getCenter()); } }, ms));
 });
 function fillSelects() {
   const opts = projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') || '<option value="">Add a project first</option>';
@@ -281,12 +296,14 @@ async function saveProject() {
     await db.collection('projects').add({
       name, district: $('pDistrict').value.trim(), taluk: $('pTaluk').value.trim(), village: $('pVillage').value.trim(),
       surveyNo: $('pSurvey').value.trim(), areaValue: num('pArea'), areaUnit: $('pUnit').value,
+      sideAB: num('mAB'), sideBC: num('mBC'), sideCD: num('mCD'), sideDA: num('mDA'), sideUnit: $('mUnit').value,
+      north: $('bN').value.trim(), south: $('bS').value.trim(), east: $('bE').value.trim(), west: $('bW').value.trim(),
       purchaseCost: num('pCost'), expenses: num('pExp'), saleValue: num('pSale'), status: $('pStatus').value,
       lat: isFinite(lat) ? lat : null, lng: isFinite(lng) ? lng : null,
       createdBy: u.email, uid: u.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
     await writeAuditLog('ADD_PROJECT', name);
-    ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale'].forEach(i => $(i).value = ''); clearPin();
+    ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale', 'mAB', 'mBC', 'mCD', 'mDA', 'bN', 'bS', 'bE', 'bW'].forEach(i => $(i).value = ''); clearPin();
     $('projMsg').innerText = '✅ Project saved'; setTimeout(() => $('projMsg').innerText = '', 3000);
   } catch (e) { console.error(e); $('projMsg').innerText = 'Save failed. Check security rules.'; }
   finally { $('saveProjBtn').disabled = false; }
@@ -297,6 +314,8 @@ function renderProjects() {
     const map = p.lat != null ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">🗺 Map</a>` : '';
     return `<div class="item"><div><b>${esc(p.name)}</b> <small>(${esc(p.status)})</small><br>
       <small>${esc(p.village)}, ${esc(p.taluk)}, ${esc(p.district)} · Sy ${esc(p.surveyNo || '-')} · ${p.areaValue || 0} ${esc(p.areaUnit)}${map}</small><br>
+      ${(p.sideAB || p.sideBC || p.sideCD || p.sideDA) ? `<small>📐 AB ${p.sideAB || 0} · BC ${p.sideBC || 0} · CD ${p.sideCD || 0} · DA ${p.sideDA || 0} ${p.sideUnit === 'm' ? 'm' : 'ft'}</small><br>` : ''}
+      ${(p.north || p.south || p.east || p.west) ? `<small>🧭 N: ${esc(p.north || '-')} · S: ${esc(p.south || '-')} · E: ${esc(p.east || '-')} · W: ${esc(p.west || '-')}</small><br>` : ''}
       <small>Cost ${inr(cost(p))} · Sale ${inr(p.saleValue)} · Profit <span class="${cls(pr)}">${inr(pr)}</span></small></div>
       <button class="sm red" onclick="delProject('${p.id}')">Delete</button></div>`;
   }).join('') || '<small>No projects yet.</small>';
