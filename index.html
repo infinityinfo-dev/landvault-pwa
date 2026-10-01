@@ -82,12 +82,12 @@ td.n,th.n{text-align:right}
 
  <!-- PROJECTS -->
  <div id="tab-projects" class="tab">
-  <div class="card"><h2>➕ Add Project</h2>
+  <div class="card"><h2 id="formTitle">➕ Add Project</h2>
    <div class="fg"><label>Project Name *</label><input id="pName" placeholder="e.g., Chittoor Layout Phase 1"></div>
    <div class="grid">
-    <div class="fg"><label>District</label><input id="pDistrict" value="Vellore"></div>
-    <div class="fg"><label>Taluk</label><input id="pTaluk" value="Arakkonam"></div>
-    <div class="fg"><label>Village</label><input id="pVillage" value="Chittoor"></div>
+    <div class="fg"><label>District</label><select id="pDistrict" onchange="comboChange('pDistrict')"></select></div>
+    <div class="fg"><label>Taluk</label><select id="pTaluk" onchange="comboChange('pTaluk')"></select></div>
+    <div class="fg"><label>Village</label><select id="pVillage" onchange="comboChange('pVillage')"></select></div>
     <div class="fg"><label>Survey No.</label><input id="pSurvey" placeholder="145/2B"></div>
     <div class="fg"><label>Area</label><input id="pArea" type="number" min="0" step="any"></div>
     <div class="fg"><label>Unit</label><select id="pUnit"><option value="cent">Cent</option><option value="ground">Ground</option><option value="acre">Acre</option><option value="sqft">Sq ft</option></select></div>
@@ -96,6 +96,7 @@ td.n,th.n{text-align:right}
     <div class="fg"><label>Sale Value (₹)</label><input id="pSale" type="number" min="0" step="any"></div>
     <div class="fg"><label>Status</label><select id="pStatus"><option>Active</option><option>Sold</option></select></div>
    </div>
+   <div id="areaInfo" style="font-size:13px;font-weight:600;margin:4px 0 12px;line-height:1.6"></div>
    <label>📐 Measurements — four corners A, B, C, D</label>
    <div class="grid">
     <div class="fg"><label>A → B</label><input id="mAB" type="number" min="0" step="any"></div>
@@ -103,7 +104,8 @@ td.n,th.n{text-align:right}
     <div class="fg"><label>C → D</label><input id="mCD" type="number" min="0" step="any"></div>
     <div class="fg"><label>D → A</label><input id="mDA" type="number" min="0" step="any"></div>
    </div>
-   <div class="fg"><label>Measurement Unit</label><select id="mUnit"><option value="ft">Feet</option><option value="m">Meter</option></select></div>
+   <div class="grid"><div class="fg"><label>Measurement Unit</label><select id="mUnit"><option value="ft">Feet</option><option value="m">Meter</option></select></div>
+   <div class="fg"><label>Diagonal A → C (optional)</label><input id="mAC" type="number" min="0" step="any"></div></div>
    <label>🧭 Nearby sites / boundaries</label>
    <div class="grid">
     <div class="fg"><label>North</label><input id="bN" placeholder="Site / owner / road"></div>
@@ -119,6 +121,7 @@ td.n,th.n{text-align:right}
     <div class="fg"><label>Longitude</label><input id="pLng" type="number" step="any" onchange="pinFromInputs()"></div>
    </div>
    <button id="saveProjBtn" onclick="saveProject()">Save Project</button>
+   <button id="cancelEdit" class="gray" style="display:none;margin-top:8px" onclick="resetForm()">Cancel edit</button>
    <div id="projMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
   </div>
   <div class="card"><h2>🏞️ Projects</h2><div id="projList"></div></div>
@@ -187,6 +190,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth(), db = firebase.firestore();
+db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -207,7 +211,7 @@ auth.onAuthStateChanged(user => {
     $('authGate').style.display = 'none'; $('app').style.display = 'block';
     $('userGreeting').innerText = '🔐 ' + user.email;
     writeAuditLog('USER_SESSION_STARTED', 'SYSTEM');
-    subscribe(); initPickMap();
+    subscribe(); initPickMap(); setCombo('pDistrict', TN, ''); fillTaluk();
   } else {
     $('authGate').style.display = 'flex'; $('app').style.display = 'none';
     unsubs.forEach(u => u()); unsubs = [];
@@ -239,7 +243,7 @@ function subscribe() {
   sub('properties', a => docs = a.sort((x, y) => (y.timestamp?.seconds || 0) - (x.timestamp?.seconds || 0)));
 }
 function refresh() {
-  fillSelects(); renderProjects(); renderHolders(); renderDocs();
+  fillSelects(); refreshCombos(); renderProjects(); renderHolders(); renderDocs();
   if (curTab === 'dash') renderDash();
   if (curTab === 'reports') renderReport();
 }
@@ -287,24 +291,79 @@ function useGPS() {
 }
 
 /* ---------- PROJECTS ---------- */
+let editId = null;
+const TN = ['Ariyalur','Chengalpattu','Chennai','Coimbatore','Cuddalore','Dharmapuri','Dindigul','Erode','Kallakurichi','Kancheepuram','Kanyakumari','Karur','Krishnagiri','Madurai','Mayiladuthurai','Nagapattinam','Namakkal','Nilgiris','Perambalur','Pudukkottai','Ramanathapuram','Ranipet','Salem','Sivaganga','Tenkasi','Thanjavur','Theni','Thoothukudi','Tiruchirappalli','Tirunelveli','Tirupathur','Tiruppur','Tiruvallur','Tiruvannamalai','Tiruvarur','Vellore','Viluppuram','Virudhunagar'];
+function setCombo(id, list, val) {
+  const u = [...new Set(list.filter(Boolean))].sort((x, y) => x.localeCompare(y)); if (val && !u.includes(val)) u.push(val);
+  const el = $(id); el.innerHTML = '<option value="">Select…</option>' + u.map(x => `<option>${esc(x)}</option>`).join('') + '<option value="__new">➕ Add new…</option>';
+  el.value = val || '';
+}
+function comboChange(id) {
+  const el = $(id);
+  if (el.value === '__new') { const v = (prompt('Enter new name') || '').trim(); setCombo(id, [...el.options].map(o => o.value).filter(x => x && x !== '__new'), v); }
+  if (id === 'pDistrict') { fillTaluk(); } if (id === 'pTaluk') fillVillage();
+}
+function fillTaluk(val) { const d = $('pDistrict').value; setCombo('pTaluk', projects.filter(p => p.district === d).map(p => p.taluk), val); fillVillage(); }
+function fillVillage(val) { const d = $('pDistrict').value, t = $('pTaluk').value; setCombo('pVillage', projects.filter(p => p.district === d && p.taluk === t).map(p => p.village), val); }
+function refreshCombos() { if (!$('pDistrict').options.length) return; const t = $('pTaluk').value, v = $('pVillage').value; fillTaluk(t); fillVillage(v); }
+
+function measArea() {
+  const k = $('mUnit').value === 'm' ? 3.28084 : 1, [a, b, c, d, e] = ['mAB', 'mBC', 'mCD', 'mDA', 'mAC'].map(i => num(i) * k);
+  if (a && b && c && d && e) { const h = (x, y, z) => { const p = (x + y + z) / 2, q = p * (p - x) * (p - y) * (p - z); return q > 0 ? Math.sqrt(q) : NaN; }; return { v: h(a, b, e) + h(c, d, e), exact: true }; }
+  if (a && b && c && d) return { v: (a + c) / 2 * ((b + d) / 2), exact: false };
+  return null;
+}
+function updArea() {
+  const sq = num('pArea') * (UNIT[$('pUnit').value] || 1), m = measArea(); let h = '';
+  if (sq) h = `📏 ${Math.round(sq).toLocaleString('en-IN')} sq ft = ${(sq / 43560).toFixed(3)} acre = ${(sq / 435.6).toFixed(2)} cent`;
+  if (m) {
+    if (!isFinite(m.v)) h += '<br><span class="neg">⚠️ These sides cannot form a valid shape</span>';
+    else { h += `<br>📐 Measured ≈ ${Math.round(m.v).toLocaleString('en-IN')} sq ft${m.exact ? '' : ' (estimate, add diagonal for exact)'}`;
+      if (sq) { const df = (m.v - sq) / sq * 100; h += Math.abs(df) <= 5 ? ' <span class="pos">✅ matches</span>' : ` <span class="neg">⚠️ differs by ${df.toFixed(1)}%</span>`; } }
+  }
+  $('areaInfo').innerHTML = h; return { sq, m };
+}
+['pArea', 'pUnit', 'mAB', 'mBC', 'mCD', 'mDA', 'mAC', 'mUnit'].forEach(i => ['input', 'change'].forEach(ev => $(i).addEventListener(ev, updArea)));
+
+function resetForm() {
+  editId = null;
+  ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale', 'mAB', 'mBC', 'mCD', 'mDA', 'mAC', 'bN', 'bS', 'bE', 'bW'].forEach(i => $(i).value = '');
+  clearPin(); updArea();
+  $('formTitle').innerText = '➕ Add Project'; $('saveProjBtn').innerText = 'Save Project'; $('cancelEdit').style.display = 'none';
+}
+function editProject(id) {
+  const p = projects.find(x => x.id === id); if (!p) return; editId = id;
+  const set = (i, v) => $(i).value = v ?? '';
+  set('pName', p.name); set('pSurvey', p.surveyNo); set('pArea', p.areaValue || ''); set('pUnit', p.areaUnit || 'cent');
+  set('pCost', p.purchaseCost || ''); set('pExp', p.expenses || ''); set('pSale', p.saleValue || ''); set('pStatus', p.status || 'Active');
+  set('mAB', p.sideAB || ''); set('mBC', p.sideBC || ''); set('mCD', p.sideCD || ''); set('mDA', p.sideDA || ''); set('mAC', p.diagAC || ''); set('mUnit', p.sideUnit || 'ft');
+  set('bN', p.north); set('bS', p.south); set('bE', p.east); set('bW', p.west);
+  setCombo('pDistrict', TN, p.district); fillTaluk(p.taluk); fillVillage(p.village);
+  clearPin(); if (p.lat != null) { setPin(p.lat, p.lng); pickMap.setView([p.lat, p.lng], 16); }
+  $('formTitle').innerText = '✏️ Edit Project'; $('saveProjBtn').innerText = 'Update Project'; $('cancelEdit').style.display = 'block';
+  updArea(); $('formTitle').scrollIntoView({ behavior: 'smooth' });
+}
 async function saveProject() {
   const name = $('pName').value.trim();
   if (!name) return alert('Project name is required.');
-  const lat = parseFloat($('pLat').value), lng = parseFloat($('pLng').value);
-  const u = auth.currentUser; $('saveProjBtn').disabled = true;
+  const { sq, m } = updArea();
+  if (sq && m && isFinite(m.v) && Math.abs((m.v - sq) / sq) > 0.05 &&
+      !confirm(`Measured area (${Math.round(m.v)} sq ft) differs from entered area (${Math.round(sq)} sq ft) by more than 5%. Save anyway?`)) return;
+  const lat = parseFloat($('pLat').value), lng = parseFloat($('pLng').value), u = auth.currentUser;
+  const data = {
+    name, district: $('pDistrict').value, taluk: $('pTaluk').value, village: $('pVillage').value,
+    surveyNo: $('pSurvey').value.trim(), areaValue: num('pArea'), areaUnit: $('pUnit').value, areaSqft: Math.round(sq),
+    sideAB: num('mAB'), sideBC: num('mBC'), sideCD: num('mCD'), sideDA: num('mDA'), diagAC: num('mAC'), sideUnit: $('mUnit').value,
+    north: $('bN').value.trim(), south: $('bS').value.trim(), east: $('bE').value.trim(), west: $('bW').value.trim(),
+    purchaseCost: num('pCost'), expenses: num('pExp'), saleValue: num('pSale'), status: $('pStatus').value,
+    lat: isFinite(lat) ? lat : null, lng: isFinite(lng) ? lng : null
+  };
+  $('saveProjBtn').disabled = true;
   try {
-    await db.collection('projects').add({
-      name, district: $('pDistrict').value.trim(), taluk: $('pTaluk').value.trim(), village: $('pVillage').value.trim(),
-      surveyNo: $('pSurvey').value.trim(), areaValue: num('pArea'), areaUnit: $('pUnit').value,
-      sideAB: num('mAB'), sideBC: num('mBC'), sideCD: num('mCD'), sideDA: num('mDA'), sideUnit: $('mUnit').value,
-      north: $('bN').value.trim(), south: $('bS').value.trim(), east: $('bE').value.trim(), west: $('bW').value.trim(),
-      purchaseCost: num('pCost'), expenses: num('pExp'), saleValue: num('pSale'), status: $('pStatus').value,
-      lat: isFinite(lat) ? lat : null, lng: isFinite(lng) ? lng : null,
-      createdBy: u.email, uid: u.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    await writeAuditLog('ADD_PROJECT', name);
-    ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale', 'mAB', 'mBC', 'mCD', 'mDA', 'bN', 'bS', 'bE', 'bW'].forEach(i => $(i).value = ''); clearPin();
-    $('projMsg').innerText = '✅ Project saved'; setTimeout(() => $('projMsg').innerText = '', 3000);
+    if (editId) { await db.collection('projects').doc(editId).update({ ...data, updatedBy: u.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }); await writeAuditLog('EDIT_PROJECT', name); }
+    else { await db.collection('projects').add({ ...data, createdBy: u.email, uid: u.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp() }); await writeAuditLog('ADD_PROJECT', name); }
+    const was = editId; resetForm();
+    $('projMsg').innerText = was ? '✅ Updated & saved to cloud' : '✅ Saved to cloud'; setTimeout(() => $('projMsg').innerText = '', 3000);
   } catch (e) { console.error(e); $('projMsg').innerText = 'Save failed. Check security rules.'; }
   finally { $('saveProjBtn').disabled = false; }
 }
@@ -314,10 +373,10 @@ function renderProjects() {
     const map = p.lat != null ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">🗺 Map</a>` : '';
     return `<div class="item"><div><b>${esc(p.name)}</b> <small>(${esc(p.status)})</small><br>
       <small>${esc(p.village)}, ${esc(p.taluk)}, ${esc(p.district)} · Sy ${esc(p.surveyNo || '-')} · ${p.areaValue || 0} ${esc(p.areaUnit)}${map}</small><br>
-      ${(p.sideAB || p.sideBC || p.sideCD || p.sideDA) ? `<small>📐 AB ${p.sideAB || 0} · BC ${p.sideBC || 0} · CD ${p.sideCD || 0} · DA ${p.sideDA || 0} ${p.sideUnit === 'm' ? 'm' : 'ft'}</small><br>` : ''}
+      ${(p.sideAB || p.sideBC || p.sideCD || p.sideDA) ? `<small>📐 AB ${p.sideAB || 0} · BC ${p.sideBC || 0} · CD ${p.sideCD || 0} · DA ${p.sideDA || 0} ${p.sideUnit === 'm' ? 'm' : 'ft'} · ${Math.round(sqft(p)).toLocaleString('en-IN')} sq ft</small><br>` : ''}
       ${(p.north || p.south || p.east || p.west) ? `<small>🧭 N: ${esc(p.north || '-')} · S: ${esc(p.south || '-')} · E: ${esc(p.east || '-')} · W: ${esc(p.west || '-')}</small><br>` : ''}
       <small>Cost ${inr(cost(p))} · Sale ${inr(p.saleValue)} · Profit <span class="${cls(pr)}">${inr(pr)}</span></small></div>
-      <button class="sm red" onclick="delProject('${p.id}')">Delete</button></div>`;
+      <div style="display:flex;flex-direction:column;gap:6px"><button class="sm" onclick="editProject('${p.id}')">✏️ Edit</button><button class="sm red" onclick="delProject('${p.id}')">Delete</button></div></div>`;
   }).join('') || '<small>No projects yet.</small>';
 }
 async function delProject(id) {
