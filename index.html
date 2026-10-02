@@ -48,7 +48,8 @@ td.n,th.n{text-align:right}
 .bar span{width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #eee;font-size:13px}
 .row2{display:flex;gap:8px;margin-bottom:10px}
-#pwModal,#trModal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:none;align-items:center;justify-content:center;padding:15px;overflow:auto}
+#pwModal,#trModal,#acModal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:none;align-items:center;justify-content:center;padding:15px;overflow:auto}
+#pwModal{z-index:3000}
 @media print{#authGate,.nav,.tabs,.noprint{display:none!important}.tab{display:none!important}#tab-reports{display:block!important}}
 </style>
 </head>
@@ -64,6 +65,7 @@ td.n,th.n{text-align:right}
 </div></div>
 
 <div id="app">
+ <div id="errBar" style="display:none;background:#ffebee;color:#c62828;padding:8px;border-radius:6px;font-size:12px;margin-bottom:10px;word-break:break-word"></div>
  <div class="nav"><span id="userGreeting" style="font-weight:700;font-size:14px"></span>
   <button class="sm red" onclick="handleLogout()">Sign Out</button></div>
  <div class="tabs" id="tabs">
@@ -134,6 +136,7 @@ td.n,th.n{text-align:right}
  <div id="tab-holders" class="tab">
   <div class="card"><h2>➕ Add Shareholder</h2>
    <div class="fg"><label>Project *</label><select id="hProject"></select></div>
+   <div class="fg"><label>Shareholder *</label><select id="hPerson" onchange="pickPerson('h')"></select></div>
    <div class="grid">
     <div class="fg"><label>Name *</label><input id="hName"></div>
     <div class="fg"><label>Phone</label><input id="hPhone" type="tel"></div>
@@ -193,6 +196,11 @@ td.n,th.n{text-align:right}
  </div>
 </div>
 
+<div id="acModal"><div class="card" style="width:100%;max-width:360px">
+  <h2>🔑 Project Access</h2><p id="acInfo" style="font-size:13px"></p>
+  <div class="fg"><label>Login Email *</label><input id="acEmail" type="email"></div>
+  <div class="fg"><label>Temporary Password (optional — creates the login now)</label><input id="acPass" type="text" placeholder="8+ characters, or leave blank"></div>
+  <div class="row2"><button onclick="saveAccess()">Save Access</button><button class="gray" onclick="$('acModal').style.display='none'">Cancel</button></div></div></div>
 <div id="pwModal"><div class="card" style="width:100%;max-width:340px">
   <h2>🔒 Confirm it's you</h2><p id="pwMsg" style="font-size:13px"></p>
   <div class="fg"><label>Your password</label><input id="pwInput" type="password" autocomplete="current-password"></div>
@@ -200,7 +208,8 @@ td.n,th.n{text-align:right}
   <div class="row2"><button onclick="pwOk()">Confirm</button><button class="gray" onclick="pwCancel()">Cancel</button></div></div></div>
 <div id="trModal"><div class="card" style="width:100%;max-width:380px">
   <h2>🔁 Transfer Share</h2><p id="tInfo" style="font-size:13px"></p>
-  <div class="fg"><label>New Shareholder Name *</label><input id="tName"></div>
+  <div class="fg"><label>New Shareholder *</label><select id="tPerson" onchange="pickPerson('t')"></select></div>
+  <div class="fg"><label>Name *</label><input id="tName"></div>
   <div class="grid"><div class="fg"><label>Phone</label><input id="tPhone" type="tel"></div>
   <div class="fg"><label>Login Email</label><input id="tEmail" type="email"></div>
   <div class="fg"><label>Share % to transfer *</label><input id="tPct" type="number" min="0" step="any" oninput="tCalc()"></div>
@@ -238,7 +247,7 @@ let pickMap, pickMarker, dashMap, dashLayer, curTab = 'dash', lastCSV = [];
 auth.onAuthStateChanged(async user => {
   if (user) {
     myEmail = (user.email || '').toLowerCase();
-    try { const r = await db.collection('users').doc(user.uid).get(); isAdmin = r.exists && r.data().role === 'admin'; } catch (e) { isAdmin = false; }
+    try { const r = await db.collection('users').doc(user.uid).get(); isAdmin = r.exists && r.data().role === 'admin'; $('errBar').style.display = r.exists ? 'none' : 'block'; if (!r.exists) $('errBar').innerText = '⚠️ No admin record found for UID ' + user.uid; } catch (e) { isAdmin = false; showErr(e); }
     $('authGate').style.display = 'none'; $('app').style.display = 'block';
     $('userGreeting').innerText = (isAdmin ? '🛡️ Admin · ' : '👤 ') + user.email;
     document.querySelectorAll('.adm').forEach(e => e.style.display = isAdmin ? '' : 'none');
@@ -273,8 +282,9 @@ async function writeAuditLog(action, asset, projectId) {
 }
 
 /* ---------- DATA ---------- */
+function showErr(e) { console.error(e); const b = $('errBar'); b.style.display = 'block'; b.innerText = '⚠️ ' + (e.code || '') + ' ' + (e.message || ''); }
 function subscribe() {
-  const sub = (q, setter) => unsubs.push(q.onSnapshot(s => { setter(s.docs.map(d => ({ id: d.id, ...d.data() }))); refresh(); }, e => console.error(e)));
+  const sub = (q, setter) => unsubs.push(q.onSnapshot(s => { setter(s.docs.map(d => ({ id: d.id, ...d.data() }))); refresh(); }, showErr));
   const byName = (x, y) => (x.name || '').localeCompare(y.name || '');
   if (isAdmin) {
     sub(db.collection('projects'), a => projects = a.sort(byName));
@@ -304,7 +314,7 @@ function merge() {
   refresh();
 }
 function refresh() {
-  fillSelects(); refreshCombos(); renderProjects(); renderHolders(); renderTransfers(); renderDocs();
+  fillSelects(); refreshCombos(); renderProjects(); renderHolders(); renderTransfers(); fillPeople(); renderDocs();
   if (curTab === 'dash') renderDash();
   if (curTab === 'reports') renderReport();
   if (curTab === 'logs') renderLogs();
@@ -460,6 +470,7 @@ async function saveHolder() {
   const pid = $('hProject').value, name = $('hName').value.trim(), pct = num('hPct'), em = $('hEmail').value.trim().toLowerCase();
   if (!pid || !name) return alert('Select a project and enter a name.');
   if (pct <= 0 || pct > 100) return alert('Share % must be between 0 and 100.');
+  if (holdersOf(pid).some(h => pKey(h) === pKey({ name, phone: $('hPhone').value.trim(), email: em }))) return alert('This shareholder is already in this project. Use Transfer to change shares.');
   const used = holdersOf(pid).reduce((s, h) => s + (h.sharePct || 0), 0);
   if (used + pct > 100.0001) return alert(`Total share would be ${used + pct}%. Only ${(100 - used).toFixed(2)}% left.`);
   try {
@@ -467,7 +478,7 @@ async function saveHolder() {
       createdBy: auth.currentUser.email, uid: auth.currentUser.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
     if (em) await db.collection('projects').doc(pid).update({ viewers: firebase.firestore.FieldValue.arrayUnion(em) });
     writeAuditLog('ADD_SHAREHOLDER', name, pid);
-    ['hName', 'hPhone', 'hPct', 'hInv', 'hEmail'].forEach(i => $(i).value = '');
+    ['hName', 'hPhone', 'hPct', 'hInv', 'hEmail'].forEach(i => $(i).value = ''); $('hPerson').value = ''; pickPerson('h');
     $('holderMsg').innerText = '✅ Saved'; setTimeout(() => $('holderMsg').innerText = '', 3000);
   } catch (e) { console.error(e); alert('Save failed. Check security rules.'); }
 }
@@ -477,9 +488,9 @@ function renderHolders() {
     const tot = hs.reduce((a, h) => a + (h.sharePct || 0), 0), pr = profit(p);
     return `<b>${esc(p.name)}</b> <small>(${tot.toFixed(1)}% allotted)</small>` + hs.map(h => {
       const st = h.status || 'Active';
-      const btns = st === 'Active' ? `<button class="sm" onclick="openTransfer('${h.id}')">🔁 Transfer</button><button class="sm gray" onclick="toggleHolder('${h.id}',false)">⏸ Disable</button>`
+      const btns = st === 'Active' ? `<button class="sm" onclick="openAccess('${h.id}')">🔑 ${h.email ? 'Change' : 'Give'} access</button><button class="sm" onclick="openTransfer('${h.id}')">🔁 Transfer</button><button class="sm gray" onclick="toggleHolder('${h.id}',false)">⏸ Disable</button>`
         : st === 'Disabled' ? `<button class="sm" onclick="toggleHolder('${h.id}',true)">▶ Enable</button>` : '';
-      return `<div class="item" style="${st === 'Active' ? '' : 'opacity:.6'}"><div>${esc(h.name)} <small>${esc(h.phone || '')} ${esc(h.email || '')}</small>${st === 'Active' ? '' : ` <small class="neg">(${esc(st)})</small>`}<br>
+      return `<div class="item" style="${st === 'Active' ? '' : 'opacity:.6'}"><div>${esc(h.name)} <small>${esc(h.phone || '')} ${h.email ? esc(h.email) : '<span class="neg">· no login email</span>'}</small>${st === 'Active' ? '' : ` <small class="neg">(${esc(st)})</small>`}<br>
        <small>${h.sharePct}% · Invested ${inr(h.invested)} · Profit share <span class="${cls(pr)}">${inr(pr * h.sharePct / 100)}</span></small>
        ${h.transferredFromName ? `<br><small>🔁 Received from ${esc(h.transferredFromName)}</small>` : ''}</div>
        <div style="display:flex;flex-direction:column;gap:6px">${btns}</div></div>`;
@@ -490,7 +501,27 @@ function renderTransfers() {
   $('transferList').innerHTML = transfers.length ? '<table><tr><th>Date</th><th>Project</th><th>From</th><th>To (new)</th><th class="n">Share %</th><th class="n">Amount</th></tr>' +
     transfers.map(t => `<tr><td>${t.ts ? t.ts.toDate().toLocaleDateString('en-IN') : '…'}</td><td>${esc(projName(t.projectId))}</td><td>${esc(t.fromName)}</td><td>${esc(t.toName)}</td><td class="n">${t.pct}%</td><td class="n">${inr(t.invested)}</td></tr>`).join('') + '</table>' : '<small>No share transfers yet.</small>';
 }
-let pwResolve = null, trFrom = null;
+let pwResolve = null, trFrom = null, acId = null;
+const pKey = h => (h.email || '').toLowerCase() || `${(h.name || '').trim().toLowerCase()}|${(h.phone || '').trim()}`;
+function people(excl) {
+  const m = new Map();
+  holders.forEach(h => { const k = pKey(h); if (k !== excl && !m.has(k)) m.set(k, { name: h.name, phone: h.phone || '', email: h.email || '' }); });
+  return [...m.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
+}
+function fillPeople() {
+  const fill = (id, excl) => {
+    const el = $(id), cur = el.value;
+    el.innerHTML = '<option value="">➕ New shareholder (type details)</option>' + people(excl).map(([k, p]) => `<option value="${esc(k)}">${esc(p.name)}${p.phone ? ' · ' + esc(p.phone) : ''}</option>`).join('');
+    el.value = [...el.options].some(o => o.value === cur) ? cur : '';
+  };
+  fill('hPerson', null);
+  const f = holders.find(x => x.id === trFrom); fill('tPerson', f ? pKey(f) : null);
+}
+function pickPerson(p) {
+  const k = $(p + 'Person').value, f = people(null).find(([kk]) => kk === k), v = f ? f[1] : null;
+  $(p + 'Name').value = v ? v.name : ''; $(p + 'Phone').value = v ? v.phone : ''; $(p + 'Email').value = v ? v.email : '';
+  ['Name', 'Phone', 'Email'].forEach(x => $(p + x).readOnly = !!v);
+}
 function askPassword(msg) { $('pwMsg').innerText = msg; $('pwInput').value = ''; $('pwErr').innerText = ''; $('pwModal').style.display = 'flex'; return new Promise(r => pwResolve = r); }
 async function pwOk() {
   const u = auth.currentUser;
@@ -512,10 +543,34 @@ async function toggleHolder(id, enable) {
     await b.commit(); writeAuditLog(enable ? 'ENABLE_SHAREHOLDER' : 'DISABLE_SHAREHOLDER', h.name, h.projectId);
   } catch (e) { console.error(e); alert('Failed. Check security rules.'); }
 }
+function openAccess(id) {
+  const h = holders.find(x => x.id === id); if (!h) return; acId = id;
+  $('acInfo').innerText = `Give ${h.name} access to ${projName(h.projectId)}`; $('acEmail').value = h.email || ''; $('acPass').value = ''; $('acModal').style.display = 'flex';
+}
+async function saveAccess() {
+  const h = holders.find(x => x.id === acId); if (!h) return;
+  const em = $('acEmail').value.trim().toLowerCase(), pw = $('acPass').value;
+  if (!/^\S+@\S+\.\S+$/.test(em)) return alert('Enter a valid email.');
+  if (pw && pw.length < 8) return alert('Password must be 8+ characters, or leave it blank.');
+  if (!(await askPassword(`Give ${em} access to this project?`))) return;
+  try {
+    let msg = '';
+    if (pw) {
+      try { const sec = firebase.apps.find(a => a.name === 'sec') || firebase.initializeApp(firebaseConfig, 'sec'); await sec.auth().createUserWithEmailAndPassword(em, pw); await sec.auth().signOut(); msg = 'Login created. '; }
+      catch (e) { if (e.code !== 'auth/email-already-in-use') throw e; msg = 'A login already existed for this email. '; }
+    }
+    const b = db.batch(), pref = db.collection('projects').doc(h.projectId);
+    b.update(db.collection('shareholders').doc(h.id), { email: em });
+    if (h.email && h.email !== em && !holders.some(x => x.id !== h.id && x.projectId === h.projectId && x.email === h.email && act(x))) b.update(pref, { viewers: firebase.firestore.FieldValue.arrayRemove(h.email) });
+    b.update(pref, { viewers: firebase.firestore.FieldValue.arrayUnion(em) });
+    await b.commit(); writeAuditLog('GRANT_ACCESS', `${h.name} → ${em}`, h.projectId);
+    $('acModal').style.display = 'none'; alert(msg + 'Access saved.');
+  } catch (e) { console.error(e); alert('Failed: ' + (e.message || e)); }
+}
 function openTransfer(id) {
   const h = holders.find(x => x.id === id); if (!h) return; trFrom = id;
   $('tInfo').innerText = `From ${h.name} · holds ${h.sharePct}% in ${projName(h.projectId)}`;
-  ['tName', 'tPhone', 'tEmail'].forEach(i => $(i).value = ''); $('tPct').value = h.sharePct; tCalc(); $('trModal').style.display = 'flex';
+  fillPeople(); $('tPerson').value = ''; pickPerson('t'); $('tPct').value = h.sharePct; tCalc(); $('trModal').style.display = 'flex';
 }
 function tCalc() { const h = holders.find(x => x.id === trFrom); if (h && h.sharePct) $('tInv').value = Math.round((h.invested || 0) * num('tPct') / h.sharePct); }
 async function doTransfer() {
