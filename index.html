@@ -129,7 +129,7 @@ td.n,th.n{text-align:right}
    <button id="cancelEdit" class="gray" style="display:none;margin-top:8px" onclick="resetForm()">Cancel edit</button>
    <div id="projMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
   </div>
-  <div class="card"><h2>🏞️ Projects</h2><div id="projList"></div></div>
+  <div class="card"><h2>🏞️ Projects</h2><label style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input type="checkbox" id="showArch" style="width:auto" onchange="renderProjects()"> Show archived projects</label><div id="projList"></div></div>
  </div>
 
  <!-- SHAREHOLDERS -->
@@ -146,12 +146,6 @@ td.n,th.n{text-align:right}
    <div class="fg"><label>Login Email (lets them view this project)</label><input id="hEmail" type="email" placeholder="shareholder@email.com"></div>
    <button onclick="saveHolder()">Save Shareholder</button>
    <div id="holderMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
-  </div>
-  <div class="card adm"><h2>🔑 Create Shareholder Login</h2>
-   <div class="grid"><div class="fg"><label>Email</label><input id="lEmail" type="email"></div>
-   <div class="fg"><label>Temporary Password (8+)</label><input id="lPass" type="text"></div></div>
-   <button class="gray" onclick="createLogin()">Create Login</button>
-   <div id="loginMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
   </div>
   <div class="card"><h2>👥 Shareholders</h2><div id="holderList"></div></div>
   <div class="card"><h2>🔁 Share Transfer History</h2><div class="tw" id="transferList"></div></div>
@@ -199,7 +193,7 @@ td.n,th.n{text-align:right}
 <div id="acModal"><div class="card" style="width:100%;max-width:360px">
   <h2>🔑 Project Access</h2><p id="acInfo" style="font-size:13px"></p>
   <div class="fg"><label>Login Email *</label><input id="acEmail" type="email"></div>
-  <div class="fg"><label>Temporary Password (optional — creates the login now)</label><input id="acPass" type="text" placeholder="8+ characters, or leave blank"></div>
+  <p style="font-size:12px;color:#555">The login must already exist (created by the admin in Firebase → Authentication → Users).</p>
   <div class="row2"><button onclick="saveAccess()">Save Access</button><button class="gray" onclick="$('acModal').style.display='none'">Cancel</button></div></div></div>
 <div id="pwModal"><div class="card" style="width:100%;max-width:340px">
   <h2>🔒 Confirm it's you</h2><p id="pwMsg" style="font-size:13px"></p>
@@ -240,7 +234,7 @@ const cls = n => n < 0 ? 'neg' : 'pos';
 
 let hBy = {}, lBy = {}, tBy = {}, transfers = [];
 const act = h => (h.status || 'Active') === 'Active';
-let projects = [], holders = [], docs = [], logs = [], unsubs = [], isAdmin = false, myEmail = '';
+let allProjects = [], projects = [], holders = [], docs = [], logs = [], unsubs = [], isAdmin = false, myEmail = '';
 let pickMap, pickMarker, dashMap, dashLayer, curTab = 'dash', lastCSV = [];
 
 /* ---------- AUTH ---------- */
@@ -251,14 +245,13 @@ auth.onAuthStateChanged(async user => {
     $('authGate').style.display = 'none'; $('app').style.display = 'block';
     $('userGreeting').innerText = (isAdmin ? '🛡️ Admin · ' : '👤 ') + user.email;
     document.querySelectorAll('.adm').forEach(e => e.style.display = isAdmin ? '' : 'none');
-    $('projForm').style.display = isAdmin ? '' : 'none';
     writeAuditLog('USER_SESSION_STARTED', isAdmin ? 'ADMIN' : 'SHAREHOLDER');
     subscribe();
     initPickMap(); setCombo('pDistrict', TN, ''); fillTaluk();
     showTab('dash');
   } else {
     $('authGate').style.display = 'flex'; $('app').style.display = 'none';
-    unsubs.forEach(u => u()); unsubs = []; projects = []; holders = []; docs = []; logs = []; hBy = {}; lBy = {}; tBy = {}; transfers = []; isAdmin = false;
+    unsubs.forEach(u => u()); unsubs = []; allProjects = []; projects = []; holders = []; docs = []; logs = []; hBy = {}; lBy = {}; tBy = {}; transfers = []; isAdmin = false;
   }
 });
 async function forgot() {
@@ -287,17 +280,18 @@ function subscribe() {
   const sub = (q, setter) => unsubs.push(q.onSnapshot(s => { setter(s.docs.map(d => ({ id: d.id, ...d.data() }))); refresh(); }, showErr));
   const byName = (x, y) => (x.name || '').localeCompare(y.name || '');
   if (isAdmin) {
-    sub(db.collection('projects'), a => projects = a.sort(byName));
+    sub(db.collection('projects'), a => setProjects(a));
     sub(db.collection('shareholders'), a => holders = a);
     sub(db.collection('properties'), a => docs = a.sort((x, y) => (y.timestamp?.seconds || 0) - (x.timestamp?.seconds || 0)));
     sub(db.collection('activity_logs').orderBy('timestamp', 'desc').limit(300), a => logs = a);
     sub(db.collection('share_transfers'), a => transfers = a.sort((x, y) => (y.ts?.seconds ?? 9e12) - (x.ts?.seconds ?? 9e12)));
   } else {
-    sub(db.collection('projects').where('viewers', 'array-contains', myEmail), a => { projects = a.sort(byName); syncProjectSubs(); });
+    sub(db.collection('projects').where('viewers', 'array-contains', myEmail), a => { setProjects(a); syncProjectSubs(); });
   }
 }
+function setProjects(a) { allProjects = a.sort((x, y) => (x.name || '').localeCompare(y.name || '')); projects = allProjects.filter(p => !p.archived); }
 function syncProjectSubs() {
-  projects.forEach(p => {
+  allProjects.forEach(p => {
     if (hBy[p.id] !== undefined) return;
     hBy[p.id] = []; lBy[p.id] = []; tBy[p.id] = [];
     const rd = (map, q) => unsubs.push(q.onSnapshot(s => { map[p.id] = s.docs.map(d => ({ id: d.id, ...d.data() })); merge(); }, () => { map[p.id] = []; merge(); }));
@@ -307,7 +301,7 @@ function syncProjectSubs() {
   });
 }
 function merge() {
-  const ids = new Set(projects.map(p => p.id)), flat = m => Object.entries(m).filter(([k]) => ids.has(k)).flatMap(([, v]) => v);
+  const ids = new Set(allProjects.map(p => p.id)), flat = m => Object.entries(m).filter(([k]) => ids.has(k)).flatMap(([, v]) => v);
   holders = flat(hBy);
   logs = flat(lBy).sort((a, b) => (b.timestamp?.seconds ?? 9e12) - (a.timestamp?.seconds ?? 9e12));
   transfers = flat(tBy).sort((a, b) => (b.ts?.seconds ?? 9e12) - (a.ts?.seconds ?? 9e12));
@@ -319,7 +313,7 @@ function refresh() {
   if (curTab === 'reports') renderReport();
   if (curTab === 'logs') renderLogs();
 }
-const projName = id => (projects.find(p => p.id === id) || {}).name || '(deleted)';
+const projName = id => (allProjects.find(p => p.id === id) || {}).name || '(unknown)';
 const holdersOf = id => holders.filter(h => h.projectId === id);
 
 /* ---------- TABS ---------- */
@@ -403,7 +397,6 @@ function resetForm() {
   ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale', 'mAB', 'mBC', 'mCD', 'mDA', 'mAC', 'bN', 'bS', 'bE', 'bW'].forEach(i => $(i).value = '');
   clearPin(); updArea();
   $('formTitle').innerText = '➕ Add Project'; $('saveProjBtn').innerText = 'Save Project'; $('cancelEdit').style.display = 'none';
-  if (!isAdmin) $('projForm').style.display = 'none';
 }
 function editProject(id) {
   const p = projects.find(x => x.id === id); if (!p) return; editId = id;
@@ -419,7 +412,6 @@ function editProject(id) {
   updArea(); $('formTitle').scrollIntoView({ behavior: 'smooth' });
 }
 async function saveProject() {
-  if (!isAdmin && !editId) return alert('Only the admin can create projects.');
   const name = $('pName').value.trim();
   if (!name) return alert('Project name is required.');
   const { sq, m } = updArea();
@@ -437,32 +429,31 @@ async function saveProject() {
   $('saveProjBtn').disabled = true;
   try {
     if (editId) { await db.collection('projects').doc(editId).update({ ...data, updatedBy: u.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }); await writeAuditLog('EDIT_PROJECT', name, editId); }
-    else { const ref = await db.collection('projects').add({ ...data, viewers: [], createdBy: u.email, uid: u.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp() }); await writeAuditLog('ADD_PROJECT', name, ref.id); }
+    else { const ref = await db.collection('projects').add({ ...data, viewers: isAdmin ? [] : [myEmail], createdBy: u.email, uid: u.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp() }); await writeAuditLog('ADD_PROJECT', name, ref.id); }
     const was = editId; resetForm();
     $('projMsg').innerText = was ? '✅ Updated & saved to cloud' : '✅ Saved to cloud'; setTimeout(() => $('projMsg').innerText = '', 3000);
   } catch (e) { console.error(e); $('projMsg').innerText = 'Save failed. Check security rules.'; }
   finally { $('saveProjBtn').disabled = false; }
 }
 function renderProjects() {
-  $('projList').innerHTML = projects.map(p => {
-    const pr = profit(p);
+  $('projList').innerHTML = ($('showArch').checked ? allProjects : projects).map(p => {
+    const pr = profit(p), ar = !!p.archived;
     const map = p.lat != null ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">🗺 Map</a>` : '';
-    return `<div class="item"><div><b>${esc(p.name)}</b> <small>(${esc(p.status)})</small><br>
+    return `<div class="item" style="${ar ? 'opacity:.6' : ''}"><div><b>${esc(p.name)}</b> <small>(${ar ? 'Archived' : esc(p.status)})</small><br>
       <small>${esc(p.village)}, ${esc(p.taluk)}, ${esc(p.district)} · Sy ${esc(p.surveyNo || '-')} · ${p.areaValue || 0} ${esc(p.areaUnit)}${map}</small><br>
       ${(p.sideAB || p.sideBC || p.sideCD || p.sideDA) ? `<small>📐 AB ${p.sideAB || 0} · BC ${p.sideBC || 0} · CD ${p.sideCD || 0} · DA ${p.sideDA || 0} ${p.sideUnit === 'm' ? 'm' : 'ft'} · ${Math.round(sqft(p)).toLocaleString('en-IN')} sq ft</small><br>` : ''}
       ${(p.north || p.south || p.east || p.west) ? `<small>🧭 N: ${esc(p.north || '-')} · S: ${esc(p.south || '-')} · E: ${esc(p.east || '-')} · W: ${esc(p.west || '-')}</small><br>` : ''}
       <small>Cost ${inr(cost(p))} · Sale ${inr(p.saleValue)} · Profit <span class="${cls(pr)}">${inr(pr)}</span></small></div>
-      <div style="display:flex;flex-direction:column;gap:6px"><button class="sm" onclick="editProject('${p.id}')">✏️ Edit</button>${isAdmin ? `<button class="sm red" onclick="delProject('${p.id}')">Delete</button>` : ''}</div></div>`;
+      <div style="display:flex;flex-direction:column;gap:6px">${ar ? `<button class="sm" onclick="archiveProject('${p.id}',false)">▶ Restore</button>` : `<button class="sm" onclick="editProject('${p.id}')">✏️ Edit</button><button class="sm gray" onclick="archiveProject('${p.id}',true)">🗄 Archive</button>`}</div></div>`;
   }).join('') || '<small>No projects yet.</small>';
 }
-async function delProject(id) {
-  if (!confirm('Delete this project and its shareholders?')) return;
-  if (!(await askPassword('Deleting a project cannot be undone.'))) return;
+async function archiveProject(id, on) {
+  const p = allProjects.find(x => x.id === id); if (!p) return;
+  if (!(await askPassword(`${on ? 'Archive' : 'Restore'} "${p.name}"? Nothing is deleted; archived projects can be viewed and restored later.`))) return;
   try {
-    const b = db.batch(); b.delete(db.collection('projects').doc(id));
-    holdersOf(id).forEach(h => b.delete(db.collection('shareholders').doc(h.id)));
-    await b.commit(); writeAuditLog('DELETE_PROJECT', projName(id));
-  } catch (e) { alert('Delete failed.'); }
+    await db.collection('projects').doc(id).update({ archived: on, archivedAt: firebase.firestore.FieldValue.serverTimestamp(), archivedBy: auth.currentUser.email });
+    writeAuditLog(on ? 'ARCHIVE_PROJECT' : 'RESTORE_PROJECT', p.name, id);
+  } catch (e) { console.error(e); alert('Failed. Check security rules.'); }
 }
 
 /* ---------- SHAREHOLDERS ---------- */
@@ -545,26 +536,20 @@ async function toggleHolder(id, enable) {
 }
 function openAccess(id) {
   const h = holders.find(x => x.id === id); if (!h) return; acId = id;
-  $('acInfo').innerText = `Give ${h.name} access to ${projName(h.projectId)}`; $('acEmail').value = h.email || ''; $('acPass').value = ''; $('acModal').style.display = 'flex';
+  $('acInfo').innerText = `Give ${h.name} access to ${projName(h.projectId)}`; $('acEmail').value = h.email || ''; $('acModal').style.display = 'flex';
 }
 async function saveAccess() {
   const h = holders.find(x => x.id === acId); if (!h) return;
-  const em = $('acEmail').value.trim().toLowerCase(), pw = $('acPass').value;
+  const em = $('acEmail').value.trim().toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(em)) return alert('Enter a valid email.');
-  if (pw && pw.length < 8) return alert('Password must be 8+ characters, or leave it blank.');
   if (!(await askPassword(`Give ${em} access to this project?`))) return;
   try {
-    let msg = '';
-    if (pw) {
-      try { const sec = firebase.apps.find(a => a.name === 'sec') || firebase.initializeApp(firebaseConfig, 'sec'); await sec.auth().createUserWithEmailAndPassword(em, pw); await sec.auth().signOut(); msg = 'Login created. '; }
-      catch (e) { if (e.code !== 'auth/email-already-in-use') throw e; msg = 'A login already existed for this email. '; }
-    }
     const b = db.batch(), pref = db.collection('projects').doc(h.projectId);
     b.update(db.collection('shareholders').doc(h.id), { email: em });
     if (h.email && h.email !== em && !holders.some(x => x.id !== h.id && x.projectId === h.projectId && x.email === h.email && act(x))) b.update(pref, { viewers: firebase.firestore.FieldValue.arrayRemove(h.email) });
     b.update(pref, { viewers: firebase.firestore.FieldValue.arrayUnion(em) });
     await b.commit(); writeAuditLog('GRANT_ACCESS', `${h.name} → ${em}`, h.projectId);
-    $('acModal').style.display = 'none'; alert(msg + 'Access saved.');
+    $('acModal').style.display = 'none'; alert('Access saved.');
   } catch (e) { console.error(e); alert('Failed: ' + (e.message || e)); }
 }
 function openTransfer(id) {
@@ -593,17 +578,6 @@ async function doTransfer() {
     $('trModal').style.display = 'none';
   } catch (e) { console.error(e); alert('Transfer failed. Check security rules.'); }
 }
-async function createLogin() {
-  const email = $('lEmail').value.trim().toLowerCase(), pw = $('lPass').value;
-  if (!email || pw.length < 8) return alert('Enter an email and a password of 8+ characters.');
-  try {
-    const sec = firebase.apps.find(a => a.name === 'sec') || firebase.initializeApp(firebaseConfig, 'sec');
-    await sec.auth().createUserWithEmailAndPassword(email, pw); await sec.auth().signOut();
-    writeAuditLog('CREATE_LOGIN', email); $('lEmail').value = ''; $('lPass').value = '';
-    $('loginMsg').innerText = '✅ Login created. Share the email and password with them.'; setTimeout(() => $('loginMsg').innerText = '', 6000);
-  } catch (e) { alert(e.code === 'auth/email-already-in-use' ? 'A login already exists for this email.' : 'Failed: ' + e.message); }
-}
-
 /* ---------- LOGS ---------- */
 function renderLogs() {
   $('logOut').innerHTML = logs.length ? '<table><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th></tr>' + logs.map(l =>
@@ -699,7 +673,11 @@ async function saveDocLink() {
   } catch (e) { console.error(e); $('statusBox').innerText = 'Save failed. Check security rules.'; }
   finally { $('uploadBtn').disabled = false; }
 }
-async function delDoc(id) { if (confirm('Remove this link?')) try { await db.collection('properties').doc(id).delete(); } catch (e) { alert('Failed.'); } }
+async function toggleDoc(id) {
+  const d = docs.find(x => x.id === id); if (!d) return; const on = !d.archived;
+  if (!(await askPassword(`${on ? 'Archive' : 'Restore'} this document record? Nothing is deleted.`))) return;
+  try { await db.collection('properties').doc(id).update({ archived: on }); writeAuditLog(on ? 'ARCHIVE_DOCUMENT' : 'RESTORE_DOCUMENT', d.fileName || '', d.projectId); } catch (e) { alert('Failed.'); }
+}
 const maskA = a => 'XXXX XXXX ' + a.slice(-4);
 function showA(id, el) { const d = docs.find(x => x.id === id); if (!d) return; const on = el.dataset.on === '1'; el.dataset.on = on ? '' : '1';
   el.previousElementSibling.textContent = on ? maskA(d.aadhaarNo) : d.aadhaarNo.replace(/(\d{4})(?=\d)/g, '$1 '); el.textContent = on ? 'Show' : 'Hide'; }
@@ -707,10 +685,10 @@ function renderDocs() {
   $('docList').innerHTML = docs.map(d => {
     const nums = [d.docNo && 'Doc No: ' + esc(d.docNo), d.regNo && 'Reg No: ' + esc(d.regNo), d.ecNo && 'EC No: ' + esc(d.ecNo)].filter(Boolean).join(' · ');
     const aad = d.aadhaarNo ? `Aadhaar${d.aadhaarName ? ' (' + esc(d.aadhaarName) + ')' : ''}: <span>${maskA(d.aadhaarNo)}</span> <a href="#" onclick="showA('${d.id}',this);return false">Show</a>` : '';
-    return `<div class="item"><div><b>${esc(d.fileName || 'Document')}</b> <small>${esc(d.projectName || '')}</small>
+    return `<div class="item" style="${d.archived ? 'opacity:.6' : ''}"><div><b>${esc(d.fileName || 'Document')}</b>${d.archived ? ' <small class="neg">(Archived)</small>' : ''} <small>${esc(d.projectName || '')}</small>
       ${nums ? '<br><small>' + nums + '</small>' : ''}${aad ? '<br><small>' + aad + '</small>' : ''}</div>
       <div style="display:flex;gap:6px;align-items:center">${d.documentVaultUrl ? `<a href="${esc(d.documentVaultUrl)}" target="_blank" rel="noopener">Open</a>` : ''}
-      <button class="sm red" onclick="delDoc('${d.id}')">✕</button></div></div>`; }).join('') || '<small>No documents yet.</small>';
+      <button class="sm gray" onclick="toggleDoc('${d.id}')">${d.archived ? '▶ Restore' : '🗄 Archive'}</button></div></div>`; }).join('') || '<small>No documents yet.</small>';
 }
 
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(console.error));
