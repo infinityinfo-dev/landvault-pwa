@@ -247,7 +247,7 @@ let pickMap, pickMarker, dashMap, dashLayer, curTab = 'dash', lastCSV = [];
 auth.onAuthStateChanged(async user => {
   if (user) {
     myEmail = (user.email || '').toLowerCase();
-    try { const r = await db.collection('users').doc(user.uid).get(); isAdmin = r.exists && r.data().role === 'admin'; $('errBar').style.display = r.exists ? 'none' : 'block'; if (!r.exists) $('errBar').innerText = '⚠️ No admin record found for UID ' + user.uid; } catch (e) { isAdmin = false; showErr(e); }
+    try { const r = await db.collection('users').doc(user.uid).get(); isAdmin = r.exists && r.data().role === 'admin'; $('errBar').style.display = 'none'; } catch (e) { isAdmin = false; showErr(e); }
     $('authGate').style.display = 'none'; $('app').style.display = 'block';
     $('userGreeting').innerText = (isAdmin ? '🛡️ Admin · ' : '👤 ') + user.email;
     document.querySelectorAll('.adm').forEach(e => e.style.display = isAdmin ? '' : 'none');
