@@ -48,6 +48,7 @@ td.n,th.n{text-align:right}
 .bar span{width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #eee;font-size:13px}
 .row2{display:flex;gap:8px;margin-bottom:10px}
+#pwModal,#trModal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:none;align-items:center;justify-content:center;padding:15px;overflow:auto}
 @media print{#authGate,.nav,.tabs,.noprint{display:none!important}.tab{display:none!important}#tab-reports{display:block!important}}
 </style>
 </head>
@@ -59,17 +60,19 @@ td.n,th.n{text-align:right}
   <div class="fg"><label for="authPassword">Secure Password</label><input type="password" id="authPassword" autocomplete="current-password"></div>
   <button id="loginBtn" onclick="handleLogin()">Unlock Dashboard</button>
   <p id="authError" style="color:red;font-size:12px;text-align:center"></p>
+  <p style="text-align:center;font-size:13px"><a href="#" onclick="forgot();return false">Forgot password?</a></p>
 </div></div>
 
 <div id="app">
  <div class="nav"><span id="userGreeting" style="font-weight:700;font-size:14px"></span>
   <button class="sm red" onclick="handleLogout()">Sign Out</button></div>
  <div class="tabs" id="tabs">
-  <button data-t="dash" class="on">📊 Dashboard</button>
+  <button class="on" data-t="dash">📊 Dashboard</button>
   <button data-t="projects">🏞️ Projects</button>
   <button data-t="holders">👥 Shareholders</button>
   <button data-t="reports">📑 Reports</button>
-  <button data-t="docs">📄 Documents</button>
+  <button class="adm" data-t="docs">📄 Documents</button>
+  <button data-t="logs">📜 Logs</button>
  </div>
 
  <!-- DASHBOARD -->
@@ -82,7 +85,7 @@ td.n,th.n{text-align:right}
 
  <!-- PROJECTS -->
  <div id="tab-projects" class="tab">
-  <div class="card"><h2 id="formTitle">➕ Add Project</h2>
+  <div class="card" id="projForm"><h2 id="formTitle">➕ Add Project</h2>
    <div class="fg"><label>Project Name *</label><input id="pName" placeholder="e.g., Chittoor Layout Phase 1"></div>
    <div class="grid">
     <div class="fg"><label>District</label><select id="pDistrict" onchange="comboChange('pDistrict')"></select></div>
@@ -137,10 +140,18 @@ td.n,th.n{text-align:right}
     <div class="fg"><label>Share % *</label><input id="hPct" type="number" min="0" max="100" step="any"></div>
     <div class="fg"><label>Invested (₹)</label><input id="hInv" type="number" min="0" step="any"></div>
    </div>
+   <div class="fg"><label>Login Email (lets them view this project)</label><input id="hEmail" type="email" placeholder="shareholder@email.com"></div>
    <button onclick="saveHolder()">Save Shareholder</button>
    <div id="holderMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
   </div>
+  <div class="card adm"><h2>🔑 Create Shareholder Login</h2>
+   <div class="grid"><div class="fg"><label>Email</label><input id="lEmail" type="email"></div>
+   <div class="fg"><label>Temporary Password (8+)</label><input id="lPass" type="text"></div></div>
+   <button class="gray" onclick="createLogin()">Create Login</button>
+   <div id="loginMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
+  </div>
   <div class="card"><h2>👥 Shareholders</h2><div id="holderList"></div></div>
+  <div class="card"><h2>🔁 Share Transfer History</h2><div class="tw" id="transferList"></div></div>
  </div>
 
  <!-- REPORTS -->
@@ -157,6 +168,9 @@ td.n,th.n{text-align:right}
    <div class="tw" id="reportOut"></div>
   </div>
  </div>
+
+ <!-- SHAREHOLDER VIEW + LOGS -->
+ <div id="tab-logs" class="tab"><div class="card"><h2>📜 Activity Log</h2><div class="tw" id="logOut"></div></div></div>
 
  <!-- DOCUMENTS -->
  <div id="tab-docs" class="tab">
@@ -179,6 +193,19 @@ td.n,th.n{text-align:right}
  </div>
 </div>
 
+<div id="pwModal"><div class="card" style="width:100%;max-width:340px">
+  <h2>🔒 Confirm it's you</h2><p id="pwMsg" style="font-size:13px"></p>
+  <div class="fg"><label>Your password</label><input id="pwInput" type="password" autocomplete="current-password"></div>
+  <div id="pwErr" style="color:red;font-size:12px;margin-bottom:8px"></div>
+  <div class="row2"><button onclick="pwOk()">Confirm</button><button class="gray" onclick="pwCancel()">Cancel</button></div></div></div>
+<div id="trModal"><div class="card" style="width:100%;max-width:380px">
+  <h2>🔁 Transfer Share</h2><p id="tInfo" style="font-size:13px"></p>
+  <div class="fg"><label>New Shareholder Name *</label><input id="tName"></div>
+  <div class="grid"><div class="fg"><label>Phone</label><input id="tPhone" type="tel"></div>
+  <div class="fg"><label>Login Email</label><input id="tEmail" type="email"></div>
+  <div class="fg"><label>Share % to transfer *</label><input id="tPct" type="number" min="0" step="any" oninput="tCalc()"></div>
+  <div class="fg"><label>Invested amount moved (₹)</label><input id="tInv" type="number" min="0" step="any"></div></div>
+  <div class="row2"><button onclick="doTransfer()">Transfer</button><button class="gray" onclick="$('trModal').style.display='none'">Cancel</button></div></div></div>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyCeTbSRbBf1ow2PfclzNxfCjGZQnpBF9z8",
@@ -202,21 +229,33 @@ const cost = p => (p.purchaseCost || 0) + (p.expenses || 0);
 const profit = p => (p.saleValue || 0) - cost(p);
 const cls = n => n < 0 ? 'neg' : 'pos';
 
-let projects = [], holders = [], docs = [], unsubs = [];
+let hBy = {}, lBy = {}, tBy = {}, transfers = [];
+const act = h => (h.status || 'Active') === 'Active';
+let projects = [], holders = [], docs = [], logs = [], unsubs = [], isAdmin = false, myEmail = '';
 let pickMap, pickMarker, dashMap, dashLayer, curTab = 'dash', lastCSV = [];
 
 /* ---------- AUTH ---------- */
-auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(async user => {
   if (user) {
+    myEmail = (user.email || '').toLowerCase();
+    try { const r = await db.collection('users').doc(user.uid).get(); isAdmin = r.exists && r.data().role === 'admin'; } catch (e) { isAdmin = false; }
     $('authGate').style.display = 'none'; $('app').style.display = 'block';
-    $('userGreeting').innerText = '🔐 ' + user.email;
-    writeAuditLog('USER_SESSION_STARTED', 'SYSTEM');
-    subscribe(); initPickMap(); setCombo('pDistrict', TN, ''); fillTaluk();
+    $('userGreeting').innerText = (isAdmin ? '🛡️ Admin · ' : '👤 ') + user.email;
+    document.querySelectorAll('.adm').forEach(e => e.style.display = isAdmin ? '' : 'none');
+    $('projForm').style.display = isAdmin ? '' : 'none';
+    writeAuditLog('USER_SESSION_STARTED', isAdmin ? 'ADMIN' : 'SHAREHOLDER');
+    subscribe();
+    initPickMap(); setCombo('pDistrict', TN, ''); fillTaluk();
+    showTab('dash');
   } else {
     $('authGate').style.display = 'flex'; $('app').style.display = 'none';
-    unsubs.forEach(u => u()); unsubs = [];
+    unsubs.forEach(u => u()); unsubs = []; projects = []; holders = []; docs = []; logs = []; hBy = {}; lBy = {}; tBy = {}; transfers = []; isAdmin = false;
   }
 });
+async function forgot() {
+  const e = $('authEmail').value.trim(); if (!e) return alert('Enter your email first.');
+  try { await auth.sendPasswordResetEmail(e); alert('If this email has a login, a reset link has been sent.'); } catch (x) { alert('Could not send reset email.'); }
+}
 async function handleLogin() {
   const email = $('authEmail').value.trim(), pass = $('authPassword').value;
   $('authError').innerText = '';
@@ -227,39 +266,63 @@ async function handleLogin() {
   finally { $('loginBtn').disabled = false; }
 }
 async function handleLogout() { await writeAuditLog('USER_SESSION_ENDED', 'SYSTEM'); await auth.signOut(); }
-async function writeAuditLog(action, asset) {
+async function writeAuditLog(action, asset, projectId) {
   const u = auth.currentUser; if (!u) return;
-  try { await db.collection('activity_logs').add({ userEmail: u.email, uid: u.uid, actionPerformed: action, targetAsset: asset, timestamp: firebase.firestore.FieldValue.serverTimestamp() }); }
+  try { await db.collection('activity_logs').add({ userEmail: u.email, uid: u.uid, actionPerformed: action, targetAsset: asset, projectId: projectId || null, timestamp: firebase.firestore.FieldValue.serverTimestamp() }); }
   catch (e) { console.error(e); }
 }
 
 /* ---------- DATA ---------- */
 function subscribe() {
-  const sub = (name, setter) => unsubs.push(db.collection(name).onSnapshot(
-    s => { setter(s.docs.map(d => ({ id: d.id, ...d.data() }))); refresh(); },
-    e => console.error(name, e)));
-  sub('projects', a => projects = a.sort((x, y) => (x.name || '').localeCompare(y.name || '')));
-  sub('shareholders', a => holders = a);
-  sub('properties', a => docs = a.sort((x, y) => (y.timestamp?.seconds || 0) - (x.timestamp?.seconds || 0)));
+  const sub = (q, setter) => unsubs.push(q.onSnapshot(s => { setter(s.docs.map(d => ({ id: d.id, ...d.data() }))); refresh(); }, e => console.error(e)));
+  const byName = (x, y) => (x.name || '').localeCompare(y.name || '');
+  if (isAdmin) {
+    sub(db.collection('projects'), a => projects = a.sort(byName));
+    sub(db.collection('shareholders'), a => holders = a);
+    sub(db.collection('properties'), a => docs = a.sort((x, y) => (y.timestamp?.seconds || 0) - (x.timestamp?.seconds || 0)));
+    sub(db.collection('activity_logs').orderBy('timestamp', 'desc').limit(300), a => logs = a);
+    sub(db.collection('share_transfers'), a => transfers = a.sort((x, y) => (y.ts?.seconds ?? 9e12) - (x.ts?.seconds ?? 9e12)));
+  } else {
+    sub(db.collection('projects').where('viewers', 'array-contains', myEmail), a => { projects = a.sort(byName); syncProjectSubs(); });
+  }
+}
+function syncProjectSubs() {
+  projects.forEach(p => {
+    if (hBy[p.id] !== undefined) return;
+    hBy[p.id] = []; lBy[p.id] = []; tBy[p.id] = [];
+    const rd = (map, q) => unsubs.push(q.onSnapshot(s => { map[p.id] = s.docs.map(d => ({ id: d.id, ...d.data() })); merge(); }, () => { map[p.id] = []; merge(); }));
+    rd(hBy, db.collection('shareholders').where('projectId', '==', p.id));
+    rd(lBy, db.collection('activity_logs').where('projectId', '==', p.id));
+    rd(tBy, db.collection('share_transfers').where('projectId', '==', p.id));
+  });
+}
+function merge() {
+  const ids = new Set(projects.map(p => p.id)), flat = m => Object.entries(m).filter(([k]) => ids.has(k)).flatMap(([, v]) => v);
+  holders = flat(hBy);
+  logs = flat(lBy).sort((a, b) => (b.timestamp?.seconds ?? 9e12) - (a.timestamp?.seconds ?? 9e12));
+  transfers = flat(tBy).sort((a, b) => (b.ts?.seconds ?? 9e12) - (a.ts?.seconds ?? 9e12));
+  refresh();
 }
 function refresh() {
-  fillSelects(); refreshCombos(); renderProjects(); renderHolders(); renderDocs();
+  fillSelects(); refreshCombos(); renderProjects(); renderHolders(); renderTransfers(); renderDocs();
   if (curTab === 'dash') renderDash();
   if (curTab === 'reports') renderReport();
+  if (curTab === 'logs') renderLogs();
 }
 const projName = id => (projects.find(p => p.id === id) || {}).name || '(deleted)';
 const holdersOf = id => holders.filter(h => h.projectId === id);
 
 /* ---------- TABS ---------- */
-$('tabs').addEventListener('click', e => {
-  const t = e.target.dataset.t; if (!t) return;
+$('tabs').addEventListener('click', e => { if (e.target.dataset.t) showTab(e.target.dataset.t); });
+function showTab(t) {
   curTab = t;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.id === 'tab-' + t));
   if (t === 'dash') renderDash();
   if (t === 'reports') renderReport();
+  if (t === 'logs') renderLogs();
   if (t === 'projects') [100, 500, 1200].forEach(ms => setTimeout(() => { if (pickMap) { pickMap.invalidateSize(); pickMap.setView(pickMap.getCenter()); } }, ms));
-});
+}
 function fillSelects() {
   const opts = projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') || '<option value="">Add a project first</option>';
   ['hProject', 'dProject'].forEach(id => { const v = $(id).value; $(id).innerHTML = opts; if (v) $(id).value = v; });
@@ -330,6 +393,7 @@ function resetForm() {
   ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale', 'mAB', 'mBC', 'mCD', 'mDA', 'mAC', 'bN', 'bS', 'bE', 'bW'].forEach(i => $(i).value = '');
   clearPin(); updArea();
   $('formTitle').innerText = '➕ Add Project'; $('saveProjBtn').innerText = 'Save Project'; $('cancelEdit').style.display = 'none';
+  if (!isAdmin) $('projForm').style.display = 'none';
 }
 function editProject(id) {
   const p = projects.find(x => x.id === id); if (!p) return; editId = id;
@@ -341,9 +405,11 @@ function editProject(id) {
   setCombo('pDistrict', TN, p.district); fillTaluk(p.taluk); fillVillage(p.village);
   clearPin(); if (p.lat != null) { setPin(p.lat, p.lng); pickMap.setView([p.lat, p.lng], 16); }
   $('formTitle').innerText = '✏️ Edit Project'; $('saveProjBtn').innerText = 'Update Project'; $('cancelEdit').style.display = 'block';
+  $('projForm').style.display = ''; setTimeout(() => pickMap.invalidateSize(), 200);
   updArea(); $('formTitle').scrollIntoView({ behavior: 'smooth' });
 }
 async function saveProject() {
+  if (!isAdmin && !editId) return alert('Only the admin can create projects.');
   const name = $('pName').value.trim();
   if (!name) return alert('Project name is required.');
   const { sq, m } = updArea();
@@ -360,8 +426,8 @@ async function saveProject() {
   };
   $('saveProjBtn').disabled = true;
   try {
-    if (editId) { await db.collection('projects').doc(editId).update({ ...data, updatedBy: u.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }); await writeAuditLog('EDIT_PROJECT', name); }
-    else { await db.collection('projects').add({ ...data, createdBy: u.email, uid: u.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp() }); await writeAuditLog('ADD_PROJECT', name); }
+    if (editId) { await db.collection('projects').doc(editId).update({ ...data, updatedBy: u.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }); await writeAuditLog('EDIT_PROJECT', name, editId); }
+    else { const ref = await db.collection('projects').add({ ...data, viewers: [], createdBy: u.email, uid: u.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp() }); await writeAuditLog('ADD_PROJECT', name, ref.id); }
     const was = editId; resetForm();
     $('projMsg').innerText = was ? '✅ Updated & saved to cloud' : '✅ Saved to cloud'; setTimeout(() => $('projMsg').innerText = '', 3000);
   } catch (e) { console.error(e); $('projMsg').innerText = 'Save failed. Check security rules.'; }
@@ -376,11 +442,12 @@ function renderProjects() {
       ${(p.sideAB || p.sideBC || p.sideCD || p.sideDA) ? `<small>📐 AB ${p.sideAB || 0} · BC ${p.sideBC || 0} · CD ${p.sideCD || 0} · DA ${p.sideDA || 0} ${p.sideUnit === 'm' ? 'm' : 'ft'} · ${Math.round(sqft(p)).toLocaleString('en-IN')} sq ft</small><br>` : ''}
       ${(p.north || p.south || p.east || p.west) ? `<small>🧭 N: ${esc(p.north || '-')} · S: ${esc(p.south || '-')} · E: ${esc(p.east || '-')} · W: ${esc(p.west || '-')}</small><br>` : ''}
       <small>Cost ${inr(cost(p))} · Sale ${inr(p.saleValue)} · Profit <span class="${cls(pr)}">${inr(pr)}</span></small></div>
-      <div style="display:flex;flex-direction:column;gap:6px"><button class="sm" onclick="editProject('${p.id}')">✏️ Edit</button><button class="sm red" onclick="delProject('${p.id}')">Delete</button></div></div>`;
+      <div style="display:flex;flex-direction:column;gap:6px"><button class="sm" onclick="editProject('${p.id}')">✏️ Edit</button>${isAdmin ? `<button class="sm red" onclick="delProject('${p.id}')">Delete</button>` : ''}</div></div>`;
   }).join('') || '<small>No projects yet.</small>';
 }
 async function delProject(id) {
   if (!confirm('Delete this project and its shareholders?')) return;
+  if (!(await askPassword('Deleting a project cannot be undone.'))) return;
   try {
     const b = db.batch(); b.delete(db.collection('projects').doc(id));
     holdersOf(id).forEach(h => b.delete(db.collection('shareholders').doc(h.id)));
@@ -390,30 +457,103 @@ async function delProject(id) {
 
 /* ---------- SHAREHOLDERS ---------- */
 async function saveHolder() {
-  const pid = $('hProject').value, name = $('hName').value.trim(), pct = num('hPct');
+  const pid = $('hProject').value, name = $('hName').value.trim(), pct = num('hPct'), em = $('hEmail').value.trim().toLowerCase();
   if (!pid || !name) return alert('Select a project and enter a name.');
   if (pct <= 0 || pct > 100) return alert('Share % must be between 0 and 100.');
   const used = holdersOf(pid).reduce((s, h) => s + (h.sharePct || 0), 0);
   if (used + pct > 100.0001) return alert(`Total share would be ${used + pct}%. Only ${(100 - used).toFixed(2)}% left.`);
   try {
-    await db.collection('shareholders').add({ projectId: pid, name, phone: $('hPhone').value.trim(), sharePct: pct, invested: num('hInv'),
+    await db.collection('shareholders').add({ projectId: pid, name, email: em, status: 'Active', phone: $('hPhone').value.trim(), sharePct: pct, invested: num('hInv'),
       createdBy: auth.currentUser.email, uid: auth.currentUser.uid, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-    writeAuditLog('ADD_SHAREHOLDER', name);
-    ['hName', 'hPhone', 'hPct', 'hInv'].forEach(i => $(i).value = '');
+    if (em) await db.collection('projects').doc(pid).update({ viewers: firebase.firestore.FieldValue.arrayUnion(em) });
+    writeAuditLog('ADD_SHAREHOLDER', name, pid);
+    ['hName', 'hPhone', 'hPct', 'hInv', 'hEmail'].forEach(i => $(i).value = '');
     $('holderMsg').innerText = '✅ Saved'; setTimeout(() => $('holderMsg').innerText = '', 3000);
   } catch (e) { console.error(e); alert('Save failed. Check security rules.'); }
 }
 function renderHolders() {
   $('holderList').innerHTML = projects.map(p => {
     const hs = holdersOf(p.id); if (!hs.length) return '';
-    const tot = hs.reduce((s, h) => s + (h.sharePct || 0), 0), pr = profit(p);
-    return `<b>${esc(p.name)}</b> <small>(${tot.toFixed(1)}% allotted)</small>` + hs.map(h =>
-      `<div class="item"><div>${esc(h.name)} <small>${esc(h.phone || '')}</small><br>
-       <small>${h.sharePct}% · Invested ${inr(h.invested)} · Profit share <span class="${cls(pr)}">${inr(pr * h.sharePct / 100)}</span></small></div>
-       <button class="sm red" onclick="delHolder('${h.id}')">✕</button></div>`).join('');
+    const tot = hs.reduce((a, h) => a + (h.sharePct || 0), 0), pr = profit(p);
+    return `<b>${esc(p.name)}</b> <small>(${tot.toFixed(1)}% allotted)</small>` + hs.map(h => {
+      const st = h.status || 'Active';
+      const btns = st === 'Active' ? `<button class="sm" onclick="openTransfer('${h.id}')">🔁 Transfer</button><button class="sm gray" onclick="toggleHolder('${h.id}',false)">⏸ Disable</button>`
+        : st === 'Disabled' ? `<button class="sm" onclick="toggleHolder('${h.id}',true)">▶ Enable</button>` : '';
+      return `<div class="item" style="${st === 'Active' ? '' : 'opacity:.6'}"><div>${esc(h.name)} <small>${esc(h.phone || '')} ${esc(h.email || '')}</small>${st === 'Active' ? '' : ` <small class="neg">(${esc(st)})</small>`}<br>
+       <small>${h.sharePct}% · Invested ${inr(h.invested)} · Profit share <span class="${cls(pr)}">${inr(pr * h.sharePct / 100)}</span></small>
+       ${h.transferredFromName ? `<br><small>🔁 Received from ${esc(h.transferredFromName)}</small>` : ''}</div>
+       <div style="display:flex;flex-direction:column;gap:6px">${btns}</div></div>`;
+    }).join('');
   }).join('') || '<small>No shareholders yet.</small>';
 }
-async function delHolder(id) { if (confirm('Remove shareholder?')) try { await db.collection('shareholders').doc(id).delete(); } catch (e) { alert('Failed.'); } }
+function renderTransfers() {
+  $('transferList').innerHTML = transfers.length ? '<table><tr><th>Date</th><th>Project</th><th>From</th><th>To (new)</th><th class="n">Share %</th><th class="n">Amount</th></tr>' +
+    transfers.map(t => `<tr><td>${t.ts ? t.ts.toDate().toLocaleDateString('en-IN') : '…'}</td><td>${esc(projName(t.projectId))}</td><td>${esc(t.fromName)}</td><td>${esc(t.toName)}</td><td class="n">${t.pct}%</td><td class="n">${inr(t.invested)}</td></tr>`).join('') + '</table>' : '<small>No share transfers yet.</small>';
+}
+let pwResolve = null, trFrom = null;
+function askPassword(msg) { $('pwMsg').innerText = msg; $('pwInput').value = ''; $('pwErr').innerText = ''; $('pwModal').style.display = 'flex'; return new Promise(r => pwResolve = r); }
+async function pwOk() {
+  const u = auth.currentUser;
+  try { await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, $('pwInput').value)); $('pwModal').style.display = 'none'; pwResolve(true); }
+  catch (e) { $('pwErr').innerText = 'Wrong password. Try again.'; }
+}
+function pwCancel() { $('pwModal').style.display = 'none'; pwResolve(false); }
+
+async function toggleHolder(id, enable) {
+  const h = holders.find(x => x.id === id); if (!h) return;
+  if (!(await askPassword(`${enable ? 'Enable' : 'Disable'} ${h.name}? ${enable ? 'They will get access again.' : 'They will lose access to this project.'}`))) return;
+  try {
+    const pref = db.collection('projects').doc(h.projectId), b = db.batch();
+    b.update(db.collection('shareholders').doc(id), { status: enable ? 'Active' : 'Disabled', statusAt: firebase.firestore.FieldValue.serverTimestamp() });
+    if (h.email) {
+      if (enable) b.update(pref, { viewers: firebase.firestore.FieldValue.arrayUnion(h.email) });
+      else if (!holders.some(x => x.id !== id && x.projectId === h.projectId && x.email === h.email && act(x))) b.update(pref, { viewers: firebase.firestore.FieldValue.arrayRemove(h.email) });
+    }
+    await b.commit(); writeAuditLog(enable ? 'ENABLE_SHAREHOLDER' : 'DISABLE_SHAREHOLDER', h.name, h.projectId);
+  } catch (e) { console.error(e); alert('Failed. Check security rules.'); }
+}
+function openTransfer(id) {
+  const h = holders.find(x => x.id === id); if (!h) return; trFrom = id;
+  $('tInfo').innerText = `From ${h.name} · holds ${h.sharePct}% in ${projName(h.projectId)}`;
+  ['tName', 'tPhone', 'tEmail'].forEach(i => $(i).value = ''); $('tPct').value = h.sharePct; tCalc(); $('trModal').style.display = 'flex';
+}
+function tCalc() { const h = holders.find(x => x.id === trFrom); if (h && h.sharePct) $('tInv').value = Math.round((h.invested || 0) * num('tPct') / h.sharePct); }
+async function doTransfer() {
+  const h = holders.find(x => x.id === trFrom); if (!h) return;
+  const name = $('tName').value.trim(), pct = num('tPct'), inv = num('tInv'), em = $('tEmail').value.trim().toLowerCase();
+  if (!name) return alert('Enter the new shareholder name.');
+  if (pct <= 0 || pct > h.sharePct + 0.0001) return alert(`Share % must be between 0 and ${h.sharePct}.`);
+  if (inv > (h.invested || 0)) return alert('Amount moved cannot exceed what this shareholder invested.');
+  if (em && !/^\S+@\S+\.\S+$/.test(em)) return alert('Enter a valid email.');
+  if (!(await askPassword(`Transfer ${pct}% from ${h.name} to ${name}?`))) return;
+  const full = Math.abs(pct - h.sharePct) < 0.0001, u = auth.currentUser, T = firebase.firestore.FieldValue.serverTimestamp();
+  try {
+    const b = db.batch(), pref = db.collection('projects').doc(h.projectId), nref = db.collection('shareholders').doc(), tref = db.collection('share_transfers').doc();
+    b.update(db.collection('shareholders').doc(h.id), full ? { sharePct: 0, invested: 0, status: 'Transferred', statusAt: T } : { sharePct: +(h.sharePct - pct).toFixed(4), invested: (h.invested || 0) - inv });
+    b.set(nref, { projectId: h.projectId, name, phone: $('tPhone').value.trim(), email: em, sharePct: pct, invested: inv, status: 'Active', transferredFromName: h.name, createdBy: u.email, uid: u.uid, timestamp: T });
+    b.set(tref, { projectId: h.projectId, fromId: h.id, fromName: h.name, toId: nref.id, toName: name, pct, invested: inv, by: u.email, ts: T });
+    if (full && h.email && h.email !== em && !holders.some(x => x.id !== h.id && x.projectId === h.projectId && x.email === h.email && act(x))) b.update(pref, { viewers: firebase.firestore.FieldValue.arrayRemove(h.email) });
+    if (em) b.update(pref, { viewers: firebase.firestore.FieldValue.arrayUnion(em) });
+    await b.commit(); writeAuditLog('TRANSFER_SHARE', `${h.name} → ${name} (${pct}%)`, h.projectId);
+    $('trModal').style.display = 'none';
+  } catch (e) { console.error(e); alert('Transfer failed. Check security rules.'); }
+}
+async function createLogin() {
+  const email = $('lEmail').value.trim().toLowerCase(), pw = $('lPass').value;
+  if (!email || pw.length < 8) return alert('Enter an email and a password of 8+ characters.');
+  try {
+    const sec = firebase.apps.find(a => a.name === 'sec') || firebase.initializeApp(firebaseConfig, 'sec');
+    await sec.auth().createUserWithEmailAndPassword(email, pw); await sec.auth().signOut();
+    writeAuditLog('CREATE_LOGIN', email); $('lEmail').value = ''; $('lPass').value = '';
+    $('loginMsg').innerText = '✅ Login created. Share the email and password with them.'; setTimeout(() => $('loginMsg').innerText = '', 6000);
+  } catch (e) { alert(e.code === 'auth/email-already-in-use' ? 'A login already exists for this email.' : 'Failed: ' + e.message); }
+}
+
+/* ---------- LOGS ---------- */
+function renderLogs() {
+  $('logOut').innerHTML = logs.length ? '<table><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th></tr>' + logs.map(l =>
+    `<tr><td>${l.timestamp ? l.timestamp.toDate().toLocaleString('en-IN') : '…'}</td><td>${esc(l.userEmail)}</td><td>${esc(l.actionPerformed)}</td><td>${esc(l.targetAsset)}</td></tr>`).join('') + '</table>' : '<small>No log entries.</small>';
+}
 
 /* ---------- DASHBOARD ---------- */
 function renderDash() {
@@ -421,7 +561,7 @@ function renderDash() {
   const k = (v, l, c = '') => `<div class="kpi"><b class="${c}">${v}</b><span>${l}</span></div>`;
   $('kpis').innerHTML = k(projects.length, 'Projects') + k((T.area / 43560).toFixed(2) + ' ac', 'Total Area (' + Math.round(T.area).toLocaleString('en-IN') + ' sq ft)')
     + k(inr(T.cost), 'Total Investment') + k(inr(T.sale), 'Total Sale Value') + k(inr(T.pr), 'Net Profit', cls(T.pr))
-    + k(new Set(holders.map(h => h.name.toLowerCase())).size, 'Shareholders');
+    + k(new Set(holders.filter(act).map(h => h.name.toLowerCase())).size, 'Shareholders');
   const max = Math.max(1, ...projects.map(p => Math.abs(profit(p))));
   $('profitBars').innerHTML = projects.map(p => { const v = profit(p);
     return `<div class="bar"><span>${esc(p.name)}</span><i style="width:${Math.abs(v) / max * 55}%;background:${v < 0 ? '#d32f2f' : '#2e7d32'}"></i><small>${inr(v)}</small></div>`; }).join('') || '<small>No data.</small>';
