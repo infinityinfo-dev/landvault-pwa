@@ -48,7 +48,7 @@ td.n,th.n{text-align:right}
 .bar span{width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #eee;font-size:13px}
 .row2{display:flex;gap:8px;margin-bottom:10px}
-#pwModal,#trModal,#acModal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:none;align-items:center;justify-content:center;padding:15px;overflow:auto}
+#pwModal,#trModal,#acModal,#cpModal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:none;align-items:center;justify-content:center;padding:15px;overflow:auto}
 #pwModal{z-index:3000}
 @media print{#authGate,.nav,.tabs,.noprint{display:none!important}.tab{display:none!important}#tab-reports{display:block!important}}
 </style>
@@ -67,11 +67,12 @@ td.n,th.n{text-align:right}
 <div id="app">
  <div id="errBar" style="display:none;background:#ffebee;color:#c62828;padding:8px;border-radius:6px;font-size:12px;margin-bottom:10px;word-break:break-word"></div>
  <div class="nav"><span id="userGreeting" style="font-weight:700;font-size:14px"></span>
-  <button class="sm red" onclick="handleLogout()">Sign Out</button></div>
+  <div style="display:flex;gap:6px"><button class="sm gray" onclick="openChangePw()">🔑 Password</button><button class="sm red" onclick="handleLogout()">Sign Out</button></div></div>
  <div class="tabs" id="tabs">
   <button class="on" data-t="dash">📊 Dashboard</button>
   <button data-t="projects">🏞️ Projects</button>
   <button data-t="holders">👥 Shareholders</button>
+  <button data-t="finance">💰 Finance</button>
   <button data-t="reports">📑 Reports</button>
   <button class="adm" data-t="docs">📄 Documents</button>
   <button data-t="logs">📜 Logs</button>
@@ -102,6 +103,59 @@ td.n,th.n{text-align:right}
     <div class="fg"><label>Status</label><select id="pStatus"><option>Active</option><option>Sold</option></select></div>
    </div>
    <div id="areaInfo" style="font-size:13px;font-weight:600;margin:4px 0 12px;line-height:1.6"></div>
+   <label>📑 Land document numbers</label>
+   <div class="grid">
+    <div class="fg"><label>Document No.</label><input id="pDocNo"></div>
+    <div class="fg"><label>Registration Date</label><input id="pRegDate" type="date"></div>
+    <div class="fg"><label>EC No.</label><input id="pEcNo"></div>
+    <div class="fg"><label>A-Register No.</label><input id="pARegNo"></div>
+    <div class="fg"><label>Patta No.</label><input id="pPatta"></div>
+   </div>
+   <label>🤝 Purchased from (seller)</label>
+   <div class="grid">
+    <div class="fg"><label>Name</label><input id="pBfName"></div>
+    <div class="fg"><label>Phone</label><input id="pBfPhone" type="tel"></div>
+   </div>
+   <div class="fg"><label>Address</label><input id="pBfAddr"></div>
+   <label>🤝 Sold to (buyer)</label>
+   <div class="grid">
+    <div class="fg"><label>Name</label><input id="pStName"></div>
+    <div class="fg"><label>Phone</label><input id="pStPhone" type="tel"></div>
+   </div>
+   <div class="fg"><label>Address</label><input id="pStAddr"></div>
+   <label>🏛 Registration & land details</label>
+   <div class="grid">
+    <div class="fg"><label>Purchase Date</label><input id="pBuyDate" type="date"></div>
+    <div class="fg"><label>Sale Date</label><input id="pSaleDate" type="date"></div>
+    <div class="fg"><label>Sub-Registrar Office</label><input id="pSro"></div>
+    <div class="fg"><label>Parent / Mother Doc No.</label><input id="pParent"></div>
+    <div class="fg"><label>FMB Sketch No.</label><input id="pFmb"></div>
+    <div class="fg"><label>EC Period (from – to)</label><input id="pEcPeriod" placeholder="e.g., 1990 – 2026"></div>
+    <div class="fg"><label>Land Type</label><select id="pLandType"><option value="">Select…</option><option>Agricultural – Wet (Nanja)</option><option>Agricultural – Dry (Punja)</option><option>House site / Plot</option><option>Approved layout (DTCP/CMDA)</option><option>Commercial</option><option>Other</option></select></div>
+    <div class="fg"><label>Approval No. (DTCP/CMDA)</label><input id="pApproval"></div>
+    <div class="fg"><label>Tax Receipt No.</label><input id="pTax"></div>
+    <div class="fg"><label>Guide Value (₹)</label><input id="pGuide" type="number" min="0" step="any"></div>
+   </div>
+   <label>📍 Site details</label>
+   <div class="grid">
+    <div class="fg"><label>Adjoining / frontage</label><select id="pFrontage"><option value="">Select…</option><option>Main road</option><option>Layout / inner road</option><option>Park / open space</option><option>Corner (road + park)</option><option>Interior (no frontage)</option><option>Water body / channel</option></select></div>
+    <div class="fg"><label>Road width (ft)</label><input id="pRoadW" type="number" min="0" step="any"></div>
+   </div>
+   <label>👥 Witness details</label>
+   <div class="grid">
+    <div class="fg"><label>Witness 1 name</label><input id="pW1Name"></div>
+    <div class="fg"><label>Phone</label><input id="pW1Phone" type="tel"></div>
+   </div>
+   <div class="fg"><label>Witness 1 address</label><input id="pW1Addr"></div>
+   <div class="grid">
+    <div class="fg"><label>Witness 2 name</label><input id="pW2Name"></div>
+    <div class="fg"><label>Phone</label><input id="pW2Phone" type="tel"></div>
+   </div>
+   <div class="fg"><label>Witness 2 address</label><input id="pW2Addr"></div>
+   <label>✅ Documents received</label>
+   <div id="docChecks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;font-size:13px"></div>
+   <div class="fg"><label>📝 Document notes</label><input id="pDocNotes" placeholder="e.g., original deed with bank, EC pending"></div>
+   <div class="fg"><label>📝 Project notes</label><input id="pNotes"></div>
    <label>📐 Measurements — four corners A, B, C, D</label>
    <div class="grid">
     <div class="fg"><label>A → B</label><input id="mAB" type="number" min="0" step="any"></div>
@@ -167,6 +221,43 @@ td.n,th.n{text-align:right}
  </div>
 
  <!-- SHAREHOLDER VIEW + LOGS -->
+ <div id="tab-finance" class="tab">
+  <div class="card"><h2>💰 Finance</h2>
+   <div class="fg"><label>Project</label><select id="fProject" onchange="loadFin()"></select></div>
+   <div id="finSum" style="font-size:13px;line-height:1.7"></div>
+  </div>
+  <div class="card"><h2>✏️ Financial details</h2>
+   <label>Advance & payment</label>
+   <div class="grid">
+    <div class="fg"><label>Advance paid (₹)</label><input id="fAdvance" type="number" min="0" step="any"></div>
+    <div class="fg"><label>Advance date</label><input id="fAdvDate" type="date"></div>
+    <div class="fg"><label>Paid through</label><select id="fPaid"><option value="">Select…</option><option>Cash</option><option>Bank transfer (NEFT/RTGS/IMPS)</option><option>Cheque</option><option>UPI</option><option>Demand Draft</option><option>Bank loan</option><option>Mixed</option></select></div>
+    <div class="fg"><label>Reference (cheque / UTR no.)</label><input id="fPayRef"></div>
+   </div>
+   <label>Broker</label>
+   <div class="grid">
+    <div class="fg"><label>Broker name</label><input id="fBrokerName"></div>
+    <div class="fg"><label>Commission (₹)</label><input id="fBrokerComm" type="number" min="0" step="any"></div>
+   </div>
+   <label>Loan / mortgage</label>
+   <div class="grid">
+    <div class="fg"><label>Lender / bank</label><input id="fLender"></div>
+    <div class="fg"><label>Loan amount (₹)</label><input id="fLoanAmt" type="number" min="0" step="any"></div>
+    <div class="fg"><label>Interest % p.a.</label><input id="fLoanRate" type="number" min="0" step="any"></div>
+    <div class="fg"><label>Loan status</label><select id="fLoanStatus"><option>None</option><option>Active</option><option>Closed</option></select></div>
+   </div>
+   <div class="fg"><label>Land mortgaged?</label><select id="fMortgaged"><option>No</option><option>Yes</option></select></div>
+   <label>Government charges</label>
+   <div class="grid">
+    <div class="fg"><label>Stamp duty (₹)</label><input id="fStamp" type="number" min="0" step="any"></div>
+    <div class="fg"><label>Registration fee (₹)</label><input id="fRegFee" type="number" min="0" step="any"></div>
+   </div>
+   <div class="fg"><label>Notes</label><input id="fNotes"></div>
+   <button onclick="saveFin()">Save Financial Details</button>
+   <div id="finMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
+  </div>
+  <div class="card"><h2>👥 Shareholder % and share of advance</h2><div id="finHolders"></div></div>
+ </div>
  <div id="tab-logs" class="tab"><div class="card"><h2>📜 Activity Log</h2><div class="tw" id="logOut"></div></div></div>
 
  <!-- DOCUMENTS -->
@@ -190,6 +281,13 @@ td.n,th.n{text-align:right}
  </div>
 </div>
 
+<div id="cpModal"><div class="card" style="width:100%;max-width:340px">
+  <h2>🔑 Change Password</h2>
+  <div class="fg"><label>Current password</label><input id="cpOld" type="password" autocomplete="current-password"></div>
+  <div class="fg"><label>New password (8+)</label><input id="cpNew" type="password" autocomplete="new-password"></div>
+  <div class="fg"><label>Confirm new password</label><input id="cpNew2" type="password" autocomplete="new-password"></div>
+  <div id="cpErr" style="color:red;font-size:12px;margin-bottom:8px"></div>
+  <div class="row2"><button onclick="changePw()">Change</button><button class="gray" onclick="$('cpModal').style.display='none'">Cancel</button></div></div></div>
 <div id="acModal"><div class="card" style="width:100%;max-width:360px">
   <h2>🔑 Project Access</h2><p id="acInfo" style="font-size:13px"></p>
   <div class="fg"><label>Login Email *</label><input id="acEmail" type="email"></div>
@@ -228,11 +326,12 @@ const num = id => parseFloat($(id).value) || 0;
 const inr = n => (n < 0 ? '-₹' : '₹') + Math.abs(Math.round(n || 0)).toLocaleString('en-IN');
 const UNIT = { sqft: 1, cent: 435.6, ground: 2400, acre: 43560 };
 const sqft = p => (p.areaValue || 0) * (UNIT[p.areaUnit] || 1);
-const cost = p => (p.purchaseCost || 0) + (p.expenses || 0);
+const finOf = id => finList.find(f => f.projectId === id) || {};
+const cost = p => { const f = finOf(p.id); return (p.purchaseCost || 0) + (p.expenses || 0) + (f.stampDuty || 0) + (f.regFee || 0) + (f.brokerComm || 0); };
 const profit = p => (p.saleValue || 0) - cost(p);
 const cls = n => n < 0 ? 'neg' : 'pos';
 
-let hBy = {}, lBy = {}, tBy = {}, transfers = [];
+let hBy = {}, lBy = {}, tBy = {}, fBy = {}, transfers = [], finList = [];
 const act = h => (h.status || 'Active') === 'Active';
 let allProjects = [], projects = [], holders = [], docs = [], logs = [], unsubs = [], isAdmin = false, myEmail = '';
 let pickMap, pickMarker, dashMap, dashLayer, curTab = 'dash', lastCSV = [];
@@ -251,12 +350,24 @@ auth.onAuthStateChanged(async user => {
     showTab('dash');
   } else {
     $('authGate').style.display = 'flex'; $('app').style.display = 'none';
-    unsubs.forEach(u => u()); unsubs = []; allProjects = []; projects = []; holders = []; docs = []; logs = []; hBy = {}; lBy = {}; tBy = {}; transfers = []; isAdmin = false;
+    unsubs.forEach(u => u()); unsubs = []; allProjects = []; projects = []; holders = []; docs = []; logs = []; hBy = {}; lBy = {}; tBy = {}; fBy = {}; transfers = []; finList = []; isAdmin = false;
   }
 });
 async function forgot() {
-  const e = $('authEmail').value.trim(); if (!e) return alert('Enter your email first.');
-  try { await auth.sendPasswordResetEmail(e); alert('If this email has a login, a reset link has been sent.'); } catch (x) { alert('Could not send reset email.'); }
+  const e = $('authEmail').value.trim(); if (!e) return alert('Type your email in the email box first, then tap Forgot password.');
+  try { await auth.sendPasswordResetEmail(e); alert('If a login exists for ' + e + ', a reset email has been sent. Check Inbox, Spam and Promotions. It can take a few minutes.'); }
+  catch (x) { alert(({ 'auth/invalid-email': 'That email address is not valid.', 'auth/user-not-found': 'No login exists for this email.', 'auth/too-many-requests': 'Too many attempts. Wait a while and try again.', 'auth/network-request-failed': 'No internet connection.' })[x.code] || ('Could not send reset email: ' + (x.code || x.message))); }
+}
+function openChangePw() { ['cpOld', 'cpNew', 'cpNew2'].forEach(i => $(i).value = ''); $('cpErr').innerText = ''; $('cpModal').style.display = 'flex'; }
+async function changePw() {
+  const u = auth.currentUser, o = $('cpOld').value, n = $('cpNew').value;
+  if (n.length < 8) { $('cpErr').innerText = 'New password must be at least 8 characters.'; return; }
+  if (n !== $('cpNew2').value) { $('cpErr').innerText = 'New passwords do not match.'; return; }
+  try {
+    await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, o));
+    await u.updatePassword(n); writeAuditLog('PASSWORD_CHANGED', u.email);
+    $('cpModal').style.display = 'none'; alert('Password changed.');
+  } catch (e) { $('cpErr').innerText = e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' ? 'Current password is wrong.' : 'Failed: ' + (e.code || e.message); }
 }
 async function handleLogin() {
   const email = $('authEmail').value.trim(), pass = $('authPassword').value;
@@ -284,6 +395,7 @@ function subscribe() {
     sub(db.collection('shareholders'), a => holders = a);
     sub(db.collection('properties'), a => docs = a.sort((x, y) => (y.timestamp?.seconds || 0) - (x.timestamp?.seconds || 0)));
     sub(db.collection('activity_logs').orderBy('timestamp', 'desc').limit(300), a => logs = a);
+    sub(db.collection('finance'), a => finList = a);
     sub(db.collection('share_transfers'), a => transfers = a.sort((x, y) => (y.ts?.seconds ?? 9e12) - (x.ts?.seconds ?? 9e12)));
   } else {
     sub(db.collection('projects').where('viewers', 'array-contains', myEmail), a => { setProjects(a); syncProjectSubs(); });
@@ -293,16 +405,17 @@ function setProjects(a) { allProjects = a.sort((x, y) => (x.name || '').localeCo
 function syncProjectSubs() {
   allProjects.forEach(p => {
     if (hBy[p.id] !== undefined) return;
-    hBy[p.id] = []; lBy[p.id] = []; tBy[p.id] = [];
+    hBy[p.id] = []; lBy[p.id] = []; tBy[p.id] = []; fBy[p.id] = [];
     const rd = (map, q) => unsubs.push(q.onSnapshot(s => { map[p.id] = s.docs.map(d => ({ id: d.id, ...d.data() })); merge(); }, () => { map[p.id] = []; merge(); }));
     rd(hBy, db.collection('shareholders').where('projectId', '==', p.id));
     rd(lBy, db.collection('activity_logs').where('projectId', '==', p.id));
     rd(tBy, db.collection('share_transfers').where('projectId', '==', p.id));
+    rd(fBy, db.collection('finance').where('projectId', '==', p.id));
   });
 }
 function merge() {
   const ids = new Set(allProjects.map(p => p.id)), flat = m => Object.entries(m).filter(([k]) => ids.has(k)).flatMap(([, v]) => v);
-  holders = flat(hBy);
+  holders = flat(hBy); finList = flat(fBy);
   logs = flat(lBy).sort((a, b) => (b.timestamp?.seconds ?? 9e12) - (a.timestamp?.seconds ?? 9e12));
   transfers = flat(tBy).sort((a, b) => (b.ts?.seconds ?? 9e12) - (a.ts?.seconds ?? 9e12));
   refresh();
@@ -312,6 +425,7 @@ function refresh() {
   if (curTab === 'dash') renderDash();
   if (curTab === 'reports') renderReport();
   if (curTab === 'logs') renderLogs();
+  if (curTab === 'finance') renderFinSummary();
 }
 const projName = id => (allProjects.find(p => p.id === id) || {}).name || '(unknown)';
 const holdersOf = id => holders.filter(h => h.projectId === id);
@@ -325,11 +439,12 @@ function showTab(t) {
   if (t === 'dash') renderDash();
   if (t === 'reports') renderReport();
   if (t === 'logs') renderLogs();
+  if (t === 'finance') loadFin();
   if (t === 'projects') [100, 500, 1200].forEach(ms => setTimeout(() => { if (pickMap) { pickMap.invalidateSize(); pickMap.setView(pickMap.getCenter()); } }, ms));
 }
 function fillSelects() {
   const opts = projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') || '<option value="">Add a project first</option>';
-  ['hProject', 'dProject'].forEach(id => { const v = $(id).value; $(id).innerHTML = opts; if (v) $(id).value = v; });
+  ['hProject', 'dProject', 'fProject'].forEach(id => { const v = $(id).value; $(id).innerHTML = opts; if (v) $(id).value = v; });
 }
 
 /* ---------- MAPS ---------- */
@@ -359,6 +474,9 @@ function useGPS() {
 
 /* ---------- PROJECTS ---------- */
 let editId = null;
+const DOCTYPES = ['Sale Deed', 'Parent / Mother Deed', 'Patta', 'Chitta', 'A-Register (Adangal)', 'FMB Sketch', 'EC (Encumbrance Cert.)', 'Property Tax Receipt', 'Layout / DTCP Approval', 'Sale Agreement', 'Power of Attorney', 'Legal Heir Certificate', 'Will / Settlement Deed', 'Other'];
+$('docChecks').innerHTML = DOCTYPES.map(d => `<label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="checkbox" class="dchk" value="${d}" style="width:auto"> ${d}</label>`).join('');
+const checkedDocs = () => [...document.querySelectorAll('.dchk:checked')].map(c => c.value);
 const TN = ['Ariyalur','Chengalpattu','Chennai','Coimbatore','Cuddalore','Dharmapuri','Dindigul','Erode','Kallakurichi','Kancheepuram','Kanyakumari','Karur','Krishnagiri','Madurai','Mayiladuthurai','Nagapattinam','Namakkal','Nilgiris','Perambalur','Pudukkottai','Ramanathapuram','Ranipet','Salem','Sivaganga','Tenkasi','Thanjavur','Theni','Thoothukudi','Tiruchirappalli','Tirunelveli','Tirupathur','Tiruppur','Tiruvallur','Tiruvannamalai','Tiruvarur','Vellore','Viluppuram','Virudhunagar'];
 function setCombo(id, list, val) {
   const u = [...new Set(list.filter(Boolean))].sort((x, y) => x.localeCompare(y)); if (val && !u.includes(val)) u.push(val);
@@ -394,7 +512,8 @@ function updArea() {
 
 function resetForm() {
   editId = null;
-  ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale', 'mAB', 'mBC', 'mCD', 'mDA', 'mAC', 'bN', 'bS', 'bE', 'bW'].forEach(i => $(i).value = '');
+  ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale', 'mAB', 'mBC', 'mCD', 'mDA', 'mAC', 'bN', 'bS', 'bE', 'bW', 'pDocNo', 'pRegDate', 'pEcNo', 'pARegNo', 'pPatta', 'pBfName', 'pBfPhone', 'pBfAddr', 'pStName', 'pStPhone', 'pStAddr', 'pBuyDate', 'pSaleDate', 'pSro', 'pParent', 'pFmb', 'pEcPeriod', 'pLandType', 'pApproval', 'pTax', 'pGuide', 'pFrontage', 'pRoadW', 'pW1Name', 'pW1Phone', 'pW1Addr', 'pW2Name', 'pW2Phone', 'pW2Addr', 'pDocNotes', 'pNotes'].forEach(i => $(i).value = '');
+  document.querySelectorAll('.dchk').forEach(c => c.checked = false);
   clearPin(); updArea();
   $('formTitle').innerText = '➕ Add Project'; $('saveProjBtn').innerText = 'Save Project'; $('cancelEdit').style.display = 'none';
 }
@@ -405,6 +524,13 @@ function editProject(id) {
   set('pCost', p.purchaseCost || ''); set('pExp', p.expenses || ''); set('pSale', p.saleValue || ''); set('pStatus', p.status || 'Active');
   set('mAB', p.sideAB || ''); set('mBC', p.sideBC || ''); set('mCD', p.sideCD || ''); set('mDA', p.sideDA || ''); set('mAC', p.diagAC || ''); set('mUnit', p.sideUnit || 'ft');
   set('bN', p.north); set('bS', p.south); set('bE', p.east); set('bW', p.west);
+  set('pDocNo', p.docNo); set('pRegDate', p.regDate); set('pEcNo', p.ecNo); set('pARegNo', p.aRegNo); set('pPatta', p.pattaNo);
+  set('pBuyDate', p.buyDate); set('pSaleDate', p.saleDate); set('pSro', p.sro); set('pParent', p.parentDoc); set('pFmb', p.fmbNo); set('pEcPeriod', p.ecPeriod);
+  set('pLandType', p.landType); set('pApproval', p.approvalNo); set('pTax', p.taxNo); set('pGuide', p.guideValue || '');
+  set('pFrontage', p.frontage); set('pRoadW', p.roadWidth || ''); set('pW1Name', p.w1Name); set('pW1Phone', p.w1Phone); set('pW1Addr', p.w1Addr); set('pW2Name', p.w2Name); set('pW2Phone', p.w2Phone); set('pW2Addr', p.w2Addr);
+  set('pDocNotes', p.docNotes); set('pNotes', p.notes);
+  document.querySelectorAll('.dchk').forEach(c => c.checked = (p.docsHave || []).includes(c.value));
+  set('pBfName', p.bfName); set('pBfPhone', p.bfPhone); set('pBfAddr', p.bfAddr); set('pStName', p.stName); set('pStPhone', p.stPhone); set('pStAddr', p.stAddr);
   setCombo('pDistrict', TN, p.district); fillTaluk(p.taluk); fillVillage(p.village);
   clearPin(); if (p.lat != null) { setPin(p.lat, p.lng); pickMap.setView([p.lat, p.lng], 16); }
   $('formTitle').innerText = '✏️ Edit Project'; $('saveProjBtn').innerText = 'Update Project'; $('cancelEdit').style.display = 'block';
@@ -423,6 +549,16 @@ async function saveProject() {
     surveyNo: $('pSurvey').value.trim(), areaValue: num('pArea'), areaUnit: $('pUnit').value, areaSqft: Math.round(sq),
     sideAB: num('mAB'), sideBC: num('mBC'), sideCD: num('mCD'), sideDA: num('mDA'), diagAC: num('mAC'), sideUnit: $('mUnit').value,
     north: $('bN').value.trim(), south: $('bS').value.trim(), east: $('bE').value.trim(), west: $('bW').value.trim(),
+    docNo: $('pDocNo').value.trim(), regDate: $('pRegDate').value, ecNo: $('pEcNo').value.trim(), aRegNo: $('pARegNo').value.trim(), pattaNo: $('pPatta').value.trim(),
+    buyDate: $('pBuyDate').value, saleDate: $('pSaleDate').value, sro: $('pSro').value.trim(), parentDoc: $('pParent').value.trim(), fmbNo: $('pFmb').value.trim(),
+    ecPeriod: $('pEcPeriod').value.trim(), landType: $('pLandType').value, approvalNo: $('pApproval').value.trim(), taxNo: $('pTax').value.trim(),
+    guideValue: num('pGuide'),
+    frontage: $('pFrontage').value, roadWidth: num('pRoadW'),
+    w1Name: $('pW1Name').value.trim(), w1Phone: $('pW1Phone').value.trim(), w1Addr: $('pW1Addr').value.trim(),
+    w2Name: $('pW2Name').value.trim(), w2Phone: $('pW2Phone').value.trim(), w2Addr: $('pW2Addr').value.trim(),
+    docsHave: checkedDocs(), docNotes: $('pDocNotes').value.trim(), notes: $('pNotes').value.trim(),
+    bfName: $('pBfName').value.trim(), bfPhone: $('pBfPhone').value.trim(), bfAddr: $('pBfAddr').value.trim(),
+    stName: $('pStName').value.trim(), stPhone: $('pStPhone').value.trim(), stAddr: $('pStAddr').value.trim(),
     purchaseCost: num('pCost'), expenses: num('pExp'), saleValue: num('pSale'), status: $('pStatus').value,
     lat: isFinite(lat) ? lat : null, lng: isFinite(lng) ? lng : null
   };
@@ -440,9 +576,17 @@ function renderProjects() {
     const pr = profit(p), ar = !!p.archived;
     const map = p.lat != null ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">🗺 Map</a>` : '';
     return `<div class="item" style="${ar ? 'opacity:.6' : ''}"><div><b>${esc(p.name)}</b> <small>(${ar ? 'Archived' : esc(p.status)})</small><br>
-      <small>${esc(p.village)}, ${esc(p.taluk)}, ${esc(p.district)} · Sy ${esc(p.surveyNo || '-')} · ${p.areaValue || 0} ${esc(p.areaUnit)}${map}</small><br>
+      <small>${esc(p.village)}, ${esc(p.taluk)}, ${esc(p.district)} · Sy ${esc(p.surveyNo || '-')} · ${p.areaValue || 0} ${esc(p.areaUnit)} (${(sqft(p) / 435.6).toFixed(2)} cent)${map}</small><br>
       ${(p.sideAB || p.sideBC || p.sideCD || p.sideDA) ? `<small>📐 AB ${p.sideAB || 0} · BC ${p.sideBC || 0} · CD ${p.sideCD || 0} · DA ${p.sideDA || 0} ${p.sideUnit === 'm' ? 'm' : 'ft'} · ${Math.round(sqft(p)).toLocaleString('en-IN')} sq ft</small><br>` : ''}
       ${(p.north || p.south || p.east || p.west) ? `<small>🧭 N: ${esc(p.north || '-')} · S: ${esc(p.south || '-')} · E: ${esc(p.east || '-')} · W: ${esc(p.west || '-')}</small><br>` : ''}
+      ${(p.docNo || p.regDate || p.ecNo || p.aRegNo || p.pattaNo) ? `<small>📑 Doc ${esc(p.docNo || '-')} · Reg ${esc(p.regDate || '-')} · EC ${esc(p.ecNo || '-')} · A-Reg ${esc(p.aRegNo || '-')} · Patta ${esc(p.pattaNo || '-')}</small><br>` : ''}
+      ${p.bfName ? `<small>🤝 From: ${esc(p.bfName)} ${esc(p.bfPhone || '')} ${esc(p.bfAddr || '')}</small><br>` : ''}
+      ${p.stName ? `<small>🤝 To: ${esc(p.stName)} ${esc(p.stPhone || '')} ${esc(p.stAddr || '')}</small><br>` : ''}
+      ${(p.sro || p.parentDoc || p.fmbNo || p.landType || p.approvalNo || p.taxNo || p.buyDate || p.saleDate) ? `<small>🏛 ${[p.buyDate && 'Bought ' + p.buyDate, p.saleDate && 'Sold ' + p.saleDate, p.sro && 'SRO ' + p.sro, p.parentDoc && 'Parent ' + p.parentDoc, p.fmbNo && 'FMB ' + p.fmbNo, p.landType, p.approvalNo && 'Approval ' + p.approvalNo, p.taxNo && 'Tax ' + p.taxNo].filter(Boolean).map(esc).join(' · ')}</small><br>` : ''}
+      ${(p.frontage || p.roadWidth) ? `<small>🛣 ${esc(p.frontage || '')}${p.roadWidth ? ' · road ' + p.roadWidth + ' ft' : ''}</small><br>` : ''}
+      ${(p.w1Name || p.w2Name) ? `<small>👥 Witness: ${[p.w1Name && [p.w1Name, p.w1Phone, p.w1Addr].filter(Boolean).join(' '), p.w2Name && [p.w2Name, p.w2Phone, p.w2Addr].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(' | ')}</small><br>` : ''}
+      ${(p.docsHave || []).length ? `<small>✅ ${p.docsHave.length}/${DOCTYPES.length} docs: ${p.docsHave.map(esc).join(', ')}<br>⏳ Missing: ${DOCTYPES.filter(d => !p.docsHave.includes(d)).map(esc).join(', ')}</small><br>` : ''}
+      ${(p.docNotes || p.notes) ? `<small>📝 ${esc([p.docNotes, p.notes].filter(Boolean).join(' · '))}</small><br>` : ''}
       <small>Cost ${inr(cost(p))} · Sale ${inr(p.saleValue)} · Profit <span class="${cls(pr)}">${inr(pr)}</span></small></div>
       <div style="display:flex;flex-direction:column;gap:6px">${ar ? `<button class="sm" onclick="archiveProject('${p.id}',false)">▶ Restore</button>` : `<button class="sm" onclick="editProject('${p.id}')">✏️ Edit</button><button class="sm gray" onclick="archiveProject('${p.id}',true)">🗄 Archive</button>`}</div></div>`;
   }).join('') || '<small>No projects yet.</small>';
@@ -479,7 +623,7 @@ function renderHolders() {
     const tot = hs.reduce((a, h) => a + (h.sharePct || 0), 0), pr = profit(p);
     return `<b>${esc(p.name)}</b> <small>(${tot.toFixed(1)}% allotted)</small>` + hs.map(h => {
       const st = h.status || 'Active';
-      const btns = st === 'Active' ? `<button class="sm" onclick="openAccess('${h.id}')">🔑 ${h.email ? 'Change' : 'Give'} access</button><button class="sm" onclick="openTransfer('${h.id}')">🔁 Transfer</button><button class="sm gray" onclick="toggleHolder('${h.id}',false)">⏸ Disable</button>`
+      const btns = st === 'Active' ? `<button class="sm" onclick="openAccess('${h.id}')">🔑 ${h.email ? 'Change' : 'Give'} access</button><button class="sm" onclick="openTransfer('${h.id}')">🔁 Transfer</button><button class="sm gray" onclick="toggleHolder('${h.id}',false)">⏸ Disable</button>${isAdmin && h.email ? `<button class="sm gray" onclick="resetFor('${h.id}')">📧 Reset password</button>` : ''}`
         : st === 'Disabled' ? `<button class="sm" onclick="toggleHolder('${h.id}',true)">▶ Enable</button>` : '';
       return `<div class="item" style="${st === 'Active' ? '' : 'opacity:.6'}"><div>${esc(h.name)} <small>${esc(h.phone || '')} ${h.email ? esc(h.email) : '<span class="neg">· no login email</span>'}</small>${st === 'Active' ? '' : ` <small class="neg">(${esc(st)})</small>`}<br>
        <small>${h.sharePct}% · Invested ${inr(h.invested)} · Profit share <span class="${cls(pr)}">${inr(pr * h.sharePct / 100)}</span></small>
@@ -534,6 +678,12 @@ async function toggleHolder(id, enable) {
     await b.commit(); writeAuditLog(enable ? 'ENABLE_SHAREHOLDER' : 'DISABLE_SHAREHOLDER', h.name, h.projectId);
   } catch (e) { console.error(e); alert('Failed. Check security rules.'); }
 }
+async function resetFor(id) {
+  const h = holders.find(x => x.id === id); if (!h || !h.email) return;
+  if (!(await askPassword(`Send a password reset email to ${h.email}?`))) return;
+  try { await auth.sendPasswordResetEmail(h.email); writeAuditLog('SEND_PASSWORD_RESET', h.email, h.projectId); alert('Reset email sent to ' + h.email + '. Ask them to check Inbox and Spam.'); }
+  catch (e) { alert(e.code === 'auth/user-not-found' ? 'No login exists for this email in Firebase Authentication.' : 'Failed: ' + (e.code || e.message)); }
+}
 function openAccess(id) {
   const h = holders.find(x => x.id === id); if (!h) return; acId = id;
   $('acInfo').innerText = `Give ${h.name} access to ${projName(h.projectId)}`; $('acEmail').value = h.email || ''; $('acModal').style.display = 'flex';
@@ -578,6 +728,41 @@ async function doTransfer() {
     $('trModal').style.display = 'none';
   } catch (e) { console.error(e); alert('Transfer failed. Check security rules.'); }
 }
+/* ---------- FINANCE ---------- */
+function loadFin() {
+  const f = finOf($('fProject').value), set = (i, v) => $(i).value = v ?? '';
+  set('fAdvance', f.advance || ''); set('fAdvDate', f.advDate); set('fPaid', f.paidThrough); set('fPayRef', f.payRef);
+  set('fBrokerName', f.brokerName); set('fBrokerComm', f.brokerComm || ''); set('fLender', f.lender); set('fLoanAmt', f.loanAmount || ''); set('fLoanRate', f.loanRate || '');
+  set('fLoanStatus', f.loanStatus || 'None'); set('fMortgaged', f.mortgaged || 'No'); set('fStamp', f.stampDuty || ''); set('fRegFee', f.regFee || ''); set('fNotes', f.notes);
+  renderFinSummary();
+}
+async function saveFin() {
+  const pid = $('fProject').value, p = projects.find(x => x.id === pid), u = auth.currentUser;
+  if (!p) return alert('Select a project first.');
+  try {
+    await db.collection('finance').doc(pid).set({
+      projectId: pid, advance: num('fAdvance'), advDate: $('fAdvDate').value, paidThrough: $('fPaid').value, payRef: $('fPayRef').value.trim(),
+      brokerName: $('fBrokerName').value.trim(), brokerComm: num('fBrokerComm'), lender: $('fLender').value.trim(), loanAmount: num('fLoanAmt'), loanRate: num('fLoanRate'),
+      loanStatus: $('fLoanStatus').value, mortgaged: $('fMortgaged').value, stampDuty: num('fStamp'), regFee: num('fRegFee'), notes: $('fNotes').value.trim(),
+      updatedBy: u.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    writeAuditLog('EDIT_FINANCE', p.name, pid);
+    $('finMsg').innerText = '✅ Saved to cloud'; setTimeout(() => $('finMsg').innerText = '', 3000);
+  } catch (e) { console.error(e); $('finMsg').innerText = 'Save failed. Check security rules.'; }
+}
+function renderFinSummary() {
+  const pid = $('fProject').value, p = projects.find(x => x.id === pid);
+  if (!p) { $('finSum').innerHTML = '<small>Add a project first.</small>'; $('finHolders').innerHTML = ''; return; }
+  const f = finOf(pid), bal = (p.purchaseCost || 0) - (f.advance || 0), pr = profit(p), r = (l, v) => `<div style="display:flex;justify-content:space-between"><span>${l}</span><b>${v}</b></div>`;
+  $('finSum').innerHTML = r('Purchase cost', inr(p.purchaseCost)) + r('Advance paid', inr(f.advance)) + r('Balance due', `<span class="${bal > 0 ? 'neg' : 'pos'}">${inr(bal)}</span>`)
+    + r('Paid through', esc(f.paidThrough || '-') + (f.payRef ? ' · ' + esc(f.payRef) : '')) + r('Broker commission', inr(f.brokerComm) + (f.brokerName ? ' · ' + esc(f.brokerName) : ''))
+    + r('Stamp duty + registration', inr((f.stampDuty || 0) + (f.regFee || 0))) + r('Total cost (all)', inr(cost(p))) + r('Sale value', inr(p.saleValue)) + r('Profit', `<span class="${cls(pr)}">${inr(pr)}</span>`)
+    + (f.loanStatus && f.loanStatus !== 'None' ? r('Loan', inr(f.loanAmount) + ' @ ' + (f.loanRate || 0) + '% · ' + esc(f.lender || '') + ' (' + esc(f.loanStatus) + ')' + (f.mortgaged === 'Yes' ? ' · mortgaged' : '')) : '');
+  const hs = holdersOf(pid);
+  $('finHolders').innerHTML = hs.length ? '<table><tr><th>Name</th><th class="n">Share %</th><th class="n">Invested</th><th class="n">Share of advance</th><th class="n">Share of balance</th></tr>' +
+    hs.map(h => `<tr><td>${esc(h.name)}${(h.status || 'Active') === 'Active' ? '' : ' <small class="neg">(' + esc(h.status) + ')</small>'}</td><td class="n">${h.sharePct}%</td><td class="n">${inr(h.invested)}</td><td class="n">${inr((f.advance || 0) * h.sharePct / 100)}</td><td class="n">${inr(bal * h.sharePct / 100)}</td></tr>`).join('') + '</table>' : '<small>No shareholders in this project yet.</small>';
+}
+
 /* ---------- LOGS ---------- */
 function renderLogs() {
   $('logOut').innerHTML = logs.length ? '<table><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th></tr>' + logs.map(l =>
