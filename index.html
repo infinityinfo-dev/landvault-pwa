@@ -15,6 +15,7 @@
 <style>
 :root{--p:#2e7d32;--bg:#f5f5f5}
 *{box-sizing:border-box}
+body{padding-bottom:84px!important}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);margin:0;padding:15px}
 .card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:15px}
 h2{color:var(--p);margin:0 0 12px;font-size:18px;border-bottom:2px solid #e0e0e0;padding-bottom:8px}
@@ -29,9 +30,19 @@ button.red{background:#d32f2f}button.gray{background:#607d8b}button.org{backgrou
 #authGate{position:fixed;inset:0;background:#fff;z-index:1000;display:flex;justify-content:center;align-items:center;padding:15px}
 #app{display:none}
 .nav{display:flex;justify-content:space-between;align-items:center;background:var(--p);color:#fff;padding:10px 15px;margin:-15px -15px 10px}
-.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px}
-.tabs button{width:auto;background:#fff;color:var(--p);border:1px solid var(--p);white-space:nowrap}
-.tabs button.on{background:var(--p);color:#fff}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:900;display:flex;gap:2px;background:#fff;border-top:1px solid #ddd;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+.tabs button{flex:1;width:auto;background:none;color:#666;border:none;font-size:11px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:8px}
+.tabs button span{font-size:20px;line-height:1}
+.tabs button.on{background:#e8f5e9;color:var(--p)}
+.sec{border:1px solid #e0e0e0;border-radius:8px;margin:8px 0;padding:0 10px}
+.sec summary{cursor:pointer;padding:10px 0;font-weight:700;color:var(--p);font-size:14px}
+.sec[open]{padding-bottom:6px}
+.chip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.ok{background:#e8f5e9;color:#2e7d32}.wn{background:#fff3e0;color:#e65100}.rk{background:#ffebee;color:#c62828}.inf{background:#e3f2fd;color:#1565c0}
+.pcard{border:1px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:10px;cursor:pointer;font-size:13px}
+.pg{height:6px;background:#eee;border-radius:3px;margin-top:6px}.pg i{display:block;height:6px;border-radius:3px;background:var(--p)}
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:10px}.menu button{background:#fff;color:var(--p);border:1px solid #ddd;padding:18px 8px;font-size:14px}
+.stp{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #eee;font-weight:400;margin:0;font-size:13px}.stp input{width:auto;margin-top:3px}
 .tab{display:none}.tab.on{display:block}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px}
 .kpi{background:#fff;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
@@ -67,23 +78,23 @@ td.n,th.n{text-align:right}
 <div id="app">
  <div id="errBar" style="display:none;background:#ffebee;color:#c62828;padding:8px;border-radius:6px;font-size:12px;margin-bottom:10px;word-break:break-word"></div>
  <div class="nav"><span id="userGreeting" style="font-weight:700;font-size:14px"></span>
-  <div style="display:flex;gap:6px"><button class="sm gray" onclick="openChangePw()">🔑 Password</button><button class="sm red" onclick="handleLogout()">Sign Out</button></div></div>
+  </div>
  <div class="tabs" id="tabs">
-  <button class="on" data-t="dash">📊 Dashboard</button>
-  <button data-t="projects">🏞️ Projects</button>
-  <button data-t="holders">👥 Shareholders</button>
-  <button data-t="finance">💰 Finance</button>
-  <button data-t="reports">📑 Reports</button>
-  <button class="adm" data-t="docs">📄 Documents</button>
-  <button data-t="logs">📜 Logs</button>
+  <button class="on" data-t="dash"><span>🏠</span>Home</button>
+  <button data-t="projects"><span>🏞️</span>Projects</button>
+  <button data-t="title"><span>🛡️</span>Title</button>
+  <button data-t="finance"><span>💰</span>Money</button>
+  <button data-t="more"><span>☰</span>More</button>
  </div>
 
  <!-- DASHBOARD -->
  <div id="tab-dash" class="tab on">
   <div class="kpis" id="kpis"></div>
-  <div class="card"><h2>📍 All Project Locations</h2><div id="dashMap" class="map"></div></div>
+  <div class="card"><h2>⚠️ Needs attention</h2><div id="alerts"></div></div>
+  <div class="card"><h2>🏞️ My Projects</h2><div id="dashCards"></div></div>
+  <div class="card"><h2>📍 Map</h2><div id="dashMap" class="map"></div></div>
   <div class="card"><h2>💰 Profit by Project</h2><div id="profitBars"></div></div>
-  <div class="card"><h2>👥 Top Shareholders (profit share)</h2><div id="topHolders"></div></div>
+  <div class="card"><h2>👥 Top Shareholders</h2><div id="topHolders"></div></div>
  </div>
 
  <!-- PROJECTS -->
@@ -103,7 +114,7 @@ td.n,th.n{text-align:right}
     <div class="fg"><label>Status</label><select id="pStatus"><option>Active</option><option>Sold</option></select></div>
    </div>
    <div id="areaInfo" style="font-size:13px;font-weight:600;margin:4px 0 12px;line-height:1.6"></div>
-   <label>📑 Land document numbers</label>
+   <details class="sec"><summary>📑 Land document numbers</summary>
    <div class="grid">
     <div class="fg"><label>Document No.</label><input id="pDocNo"></div>
     <div class="fg"><label>Registration Date</label><input id="pRegDate" type="date"></div>
@@ -111,37 +122,38 @@ td.n,th.n{text-align:right}
     <div class="fg"><label>A-Register No.</label><input id="pARegNo"></div>
     <div class="fg"><label>Patta No.</label><input id="pPatta"></div>
    </div>
-   <label>🤝 Purchased from (seller)</label>
+   </details><details class="sec"><summary>🤝 Purchased from (seller)</summary>
    <div class="grid">
     <div class="fg"><label>Name</label><input id="pBfName"></div>
     <div class="fg"><label>Phone</label><input id="pBfPhone" type="tel"></div>
    </div>
    <div class="fg"><label>Address</label><input id="pBfAddr"></div>
-   <label>🤝 Sold to (buyer)</label>
+   </details><details class="sec"><summary>🤝 Sold to (buyer)</summary>
    <div class="grid">
     <div class="fg"><label>Name</label><input id="pStName"></div>
     <div class="fg"><label>Phone</label><input id="pStPhone" type="tel"></div>
    </div>
    <div class="fg"><label>Address</label><input id="pStAddr"></div>
-   <label>🏛 Registration & land details</label>
+   </details><details class="sec"><summary>🏛 Registration & land details</summary>
    <div class="grid">
     <div class="fg"><label>Purchase Date</label><input id="pBuyDate" type="date"></div>
     <div class="fg"><label>Sale Date</label><input id="pSaleDate" type="date"></div>
     <div class="fg"><label>Sub-Registrar Office</label><input id="pSro"></div>
     <div class="fg"><label>Parent / Mother Doc No.</label><input id="pParent"></div>
     <div class="fg"><label>FMB Sketch No.</label><input id="pFmb"></div>
+    <div class="fg"><label>Sub-division No.</label><input id="pSubDiv"></div>
     <div class="fg"><label>EC Period (from – to)</label><input id="pEcPeriod" placeholder="e.g., 1990 – 2026"></div>
     <div class="fg"><label>Land Type</label><select id="pLandType"><option value="">Select…</option><option>Agricultural – Wet (Nanja)</option><option>Agricultural – Dry (Punja)</option><option>House site / Plot</option><option>Approved layout (DTCP/CMDA)</option><option>Commercial</option><option>Other</option></select></div>
     <div class="fg"><label>Approval No. (DTCP/CMDA)</label><input id="pApproval"></div>
     <div class="fg"><label>Tax Receipt No.</label><input id="pTax"></div>
     <div class="fg"><label>Guide Value (₹)</label><input id="pGuide" type="number" min="0" step="any"></div>
    </div>
-   <label>📍 Site details</label>
+   </details><details class="sec"><summary>📍 Site details</summary>
    <div class="grid">
     <div class="fg"><label>Adjoining / frontage</label><select id="pFrontage"><option value="">Select…</option><option>Main road</option><option>Layout / inner road</option><option>Park / open space</option><option>Corner (road + park)</option><option>Interior (no frontage)</option><option>Water body / channel</option></select></div>
     <div class="fg"><label>Road width (ft)</label><input id="pRoadW" type="number" min="0" step="any"></div>
    </div>
-   <label>👥 Witness details</label>
+   </details><details class="sec"><summary>👥 Witness details</summary>
    <div class="grid">
     <div class="fg"><label>Witness 1 name</label><input id="pW1Name"></div>
     <div class="fg"><label>Phone</label><input id="pW1Phone" type="tel"></div>
@@ -152,11 +164,11 @@ td.n,th.n{text-align:right}
     <div class="fg"><label>Phone</label><input id="pW2Phone" type="tel"></div>
    </div>
    <div class="fg"><label>Witness 2 address</label><input id="pW2Addr"></div>
-   <label>✅ Documents received</label>
+   </details><details class="sec"><summary>✅ Documents received</summary>
    <div id="docChecks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;font-size:13px"></div>
    <div class="fg"><label>📝 Document notes</label><input id="pDocNotes" placeholder="e.g., original deed with bank, EC pending"></div>
    <div class="fg"><label>📝 Project notes</label><input id="pNotes"></div>
-   <label>📐 Measurements — four corners A, B, C, D</label>
+   </details><details class="sec"><summary>📐 Measurements — four corners A, B, C, D</summary>
    <div class="grid">
     <div class="fg"><label>A → B</label><input id="mAB" type="number" min="0" step="any"></div>
     <div class="fg"><label>B → C</label><input id="mBC" type="number" min="0" step="any"></div>
@@ -165,20 +177,21 @@ td.n,th.n{text-align:right}
    </div>
    <div class="grid"><div class="fg"><label>Measurement Unit</label><select id="mUnit"><option value="ft">Feet</option><option value="m">Meter</option></select></div>
    <div class="fg"><label>Diagonal A → C (optional)</label><input id="mAC" type="number" min="0" step="any"></div></div>
-   <label>🧭 Nearby sites / boundaries</label>
+   </details><details class="sec"><summary>🧭 Nearby sites / boundaries</summary>
    <div class="grid">
     <div class="fg"><label>North</label><input id="bN" placeholder="Site / owner / road"></div>
     <div class="fg"><label>South</label><input id="bS"></div>
     <div class="fg"><label>East</label><input id="bE"></div>
     <div class="fg"><label>West</label><input id="bW"></div>
    </div>
-   <label>📍 Location — tap the map to drop a pin</label>
+   </details><details class="sec"><summary>📍 Location — tap the map to drop a pin</summary>
    <div id="pickMap" class="map"></div>
    <div class="row2"><button class="sm gray" onclick="useGPS()">📡 Use my location</button><button class="sm gray" onclick="clearPin()">✖ Clear pin</button></div>
    <div class="grid">
     <div class="fg"><label>Latitude</label><input id="pLat" type="number" step="any" onchange="pinFromInputs()"></div>
     <div class="fg"><label>Longitude</label><input id="pLng" type="number" step="any" onchange="pinFromInputs()"></div>
    </div>
+   </details>
    <button id="saveProjBtn" onclick="saveProject()">Save Project</button>
    <button id="cancelEdit" class="gray" style="display:none;margin-top:8px" onclick="resetForm()">Cancel edit</button>
    <div id="projMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
@@ -188,6 +201,7 @@ td.n,th.n{text-align:right}
 
  <!-- SHAREHOLDERS -->
  <div id="tab-holders" class="tab">
+  <button class="sm gray noprint" style="margin-bottom:10px" onclick="showTab('more')">← More</button>
   <div class="card"><h2>➕ Add Shareholder</h2>
    <div class="fg"><label>Project *</label><select id="hProject"></select></div>
    <div class="fg"><label>Shareholder *</label><select id="hPerson" onchange="pickPerson('h')"></select></div>
@@ -207,6 +221,7 @@ td.n,th.n{text-align:right}
 
  <!-- REPORTS -->
  <div id="tab-reports" class="tab">
+  <button class="sm gray noprint" style="margin-bottom:10px" onclick="showTab('more')">← More</button>
   <div class="card"><h2>📑 Reports</h2>
    <div class="grid noprint">
     <div class="fg"><label>Report</label><select id="rType" onchange="renderReport()">
@@ -221,6 +236,56 @@ td.n,th.n{text-align:right}
  </div>
 
  <!-- SHAREHOLDER VIEW + LOGS -->
+ <div id="tab-more" class="tab"><div class="card"><h2>☰ More</h2><div class="menu">
+  <button onclick="showTab('holders')">👥<br>Shareholders</button>
+  <button onclick="showTab('reports')">📑<br>Reports</button>
+  <button class="adm" onclick="showTab('docs')">📄<br>Documents</button>
+  <button onclick="showTab('logs')">📜<br>Activity log</button>
+  <button onclick="openChangePw()">🔑<br>Password</button>
+  <button onclick="handleLogout()" style="color:#d32f2f">🚪<br>Sign out</button>
+ </div></div></div>
+
+ <div id="tab-title" class="tab">
+  <div class="card"><h2>🛡️ Title Check</h2>
+   <div class="fg"><label>Project</label><select id="tkProject" onchange="loadTitle()"></select></div>
+   <div id="tkScore"></div>
+  </div>
+  <div class="card"><h2>✅ 10-step checklist</h2><div id="tkSteps"></div></div>
+  <div class="card"><h2>🔗 Chain of Title (who owned it, in order)</h2><div id="tkChain"></div>
+   <details class="sec"><summary>➕ Add an owner link</summary>
+    <div class="grid">
+     <div class="fg"><label>Year *</label><input id="tcYear" type="number" min="1800" max="2100"></div>
+     <div class="fg"><label>How it passed</label><select id="tcType"><option>Sale</option><option>Settlement</option><option>Gift</option><option>Partition</option><option>Release</option><option>Will</option><option>Inheritance</option><option>Court decree</option><option>Govt assignment</option></select></div>
+     <div class="fg"><label>From (old owner) *</label><input id="tcFrom"></div>
+     <div class="fg"><label>To (new owner) *</label><input id="tcTo"></div>
+     <div class="fg"><label>Document No.</label><input id="tcDoc"></div>
+     <div class="fg"><label>SRO</label><input id="tcSro"></div>
+     <div class="fg"><label>Survey No.</label><input id="tcSurvey"></div>
+     <div class="fg"><label>Extent (e.g. 2.00 ac)</label><input id="tcExtent"></div>
+    </div>
+    <button onclick="addChain()">Add to chain</button>
+   </details>
+  </div>
+  <div class="card"><h2>⚖️ Court, mortgage & other issues</h2>
+   <div class="grid" id="tkLits"></div>
+   <div class="fg"><label>Notes</label><input id="tkLitNotes"></div>
+  </div>
+  <div class="card"><h2>📜 If mother deed is missing</h2>
+   <div class="fg"><label>Reason</label><select id="tkParentWhy"><option value="">Not applicable</option><option>Lost</option><option>Held in old registration office</option><option>Certified copy applied</option><option>Came by partition / inheritance</option><option>Came by court decree</option><option>Other</option></select></div>
+   <div class="fg"><label>Alternate proof / notes</label><input id="tkParentNotes"></div>
+  </div>
+  <div class="card"><h2>👨‍⚖️ Advocate title opinion</h2>
+   <div class="grid">
+    <div class="fg"><label>Advocate name</label><input id="tkAdvName"></div>
+    <div class="fg"><label>Opinion date</label><input id="tkAdvDate" type="date"></div>
+   </div>
+   <div class="fg"><label>Opinion</label><select id="tkAdvOpinion"><option>Pending</option><option>Clear</option><option>Clear with conditions</option><option>Not clear</option></select></div>
+   <div class="fg"><label>Conditions / notes</label><input id="tkAdvNotes"></div>
+   <button onclick="saveTitle()">Save Title Check</button>
+   <div id="tkMsg" style="text-align:center;margin-top:8px;font-weight:700;color:var(--p)"></div>
+  </div>
+ </div>
+
  <div id="tab-finance" class="tab">
   <div class="card"><h2>💰 Finance</h2>
    <div class="fg"><label>Project</label><select id="fProject" onchange="loadFin()"></select></div>
@@ -258,10 +323,12 @@ td.n,th.n{text-align:right}
   </div>
   <div class="card"><h2>👥 Shareholder % and share of advance</h2><div id="finHolders"></div></div>
  </div>
- <div id="tab-logs" class="tab"><div class="card"><h2>📜 Activity Log</h2><div class="tw" id="logOut"></div></div></div>
+ <div id="tab-logs" class="tab">
+  <button class="sm gray noprint" style="margin-bottom:10px" onclick="showTab('more')">← More</button><div class="card"><h2>📜 Activity Log</h2><div class="tw" id="logOut"></div></div></div>
 
  <!-- DOCUMENTS -->
  <div id="tab-docs" class="tab">
+  <button class="sm gray noprint" style="margin-bottom:10px" onclick="showTab('more')">← More</button>
   <div class="card"><h2>📄 Document Details & Drive Links</h2>
    <div class="row2"><button class="sm gray" onclick="window.open('https://drive.google.com','_blank','noopener')">📂 Open Google Drive</button><button class="sm gray" onclick="openPortal()">🔍 Patta / A-Register</button></div>
    <div class="fg"><label>Project</label><select id="dProject"></select></div>
@@ -426,25 +493,31 @@ function refresh() {
   if (curTab === 'reports') renderReport();
   if (curTab === 'logs') renderLogs();
   if (curTab === 'finance') renderFinSummary();
+  if (curTab === 'title') { if (!$('tkSteps').innerHTML) loadTitle(); else renderTitleSummary(); }
 }
 const projName = id => (allProjects.find(p => p.id === id) || {}).name || '(unknown)';
 const holdersOf = id => holders.filter(h => h.projectId === id);
 
 /* ---------- TABS ---------- */
-$('tabs').addEventListener('click', e => { if (e.target.dataset.t) showTab(e.target.dataset.t); });
+$('tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) showTab(b.dataset.t); });
 function showTab(t) {
   curTab = t;
-  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  const key = ['dash', 'projects', 'title', 'finance'].includes(t) ? t : 'more';
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === key));
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.id === 'tab-' + t));
+  window.scrollTo(0, 0);
   if (t === 'dash') renderDash();
   if (t === 'reports') renderReport();
   if (t === 'logs') renderLogs();
   if (t === 'finance') loadFin();
+  if (t === 'title') loadTitle();
   if (t === 'projects') [100, 500, 1200].forEach(ms => setTimeout(() => { if (pickMap) { pickMap.invalidateSize(); pickMap.setView(pickMap.getCenter()); } }, ms));
 }
+function goTitle(id) { showTab('title'); $('tkProject').value = id; loadTitle(); }
+document.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('sec') && e.target.open && pickMap) setTimeout(() => pickMap.invalidateSize(), 100); }, true);
 function fillSelects() {
   const opts = projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') || '<option value="">Add a project first</option>';
-  ['hProject', 'dProject', 'fProject'].forEach(id => { const v = $(id).value; $(id).innerHTML = opts; if (v) $(id).value = v; });
+  ['hProject', 'dProject', 'fProject', 'tkProject'].forEach(id => { const v = $(id).value; $(id).innerHTML = opts; if (v) $(id).value = v; });
 }
 
 /* ---------- MAPS ---------- */
@@ -512,7 +585,7 @@ function updArea() {
 
 function resetForm() {
   editId = null;
-  ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale', 'mAB', 'mBC', 'mCD', 'mDA', 'mAC', 'bN', 'bS', 'bE', 'bW', 'pDocNo', 'pRegDate', 'pEcNo', 'pARegNo', 'pPatta', 'pBfName', 'pBfPhone', 'pBfAddr', 'pStName', 'pStPhone', 'pStAddr', 'pBuyDate', 'pSaleDate', 'pSro', 'pParent', 'pFmb', 'pEcPeriod', 'pLandType', 'pApproval', 'pTax', 'pGuide', 'pFrontage', 'pRoadW', 'pW1Name', 'pW1Phone', 'pW1Addr', 'pW2Name', 'pW2Phone', 'pW2Addr', 'pDocNotes', 'pNotes'].forEach(i => $(i).value = '');
+  ['pName', 'pSurvey', 'pArea', 'pCost', 'pExp', 'pSale', 'mAB', 'mBC', 'mCD', 'mDA', 'mAC', 'bN', 'bS', 'bE', 'bW', 'pDocNo', 'pRegDate', 'pEcNo', 'pARegNo', 'pPatta', 'pBfName', 'pBfPhone', 'pBfAddr', 'pStName', 'pStPhone', 'pStAddr', 'pBuyDate', 'pSaleDate', 'pSro', 'pParent', 'pFmb', 'pSubDiv', 'pEcPeriod', 'pLandType', 'pApproval', 'pTax', 'pGuide', 'pFrontage', 'pRoadW', 'pW1Name', 'pW1Phone', 'pW1Addr', 'pW2Name', 'pW2Phone', 'pW2Addr', 'pDocNotes', 'pNotes'].forEach(i => $(i).value = '');
   document.querySelectorAll('.dchk').forEach(c => c.checked = false);
   clearPin(); updArea();
   $('formTitle').innerText = '➕ Add Project'; $('saveProjBtn').innerText = 'Save Project'; $('cancelEdit').style.display = 'none';
@@ -525,7 +598,7 @@ function editProject(id) {
   set('mAB', p.sideAB || ''); set('mBC', p.sideBC || ''); set('mCD', p.sideCD || ''); set('mDA', p.sideDA || ''); set('mAC', p.diagAC || ''); set('mUnit', p.sideUnit || 'ft');
   set('bN', p.north); set('bS', p.south); set('bE', p.east); set('bW', p.west);
   set('pDocNo', p.docNo); set('pRegDate', p.regDate); set('pEcNo', p.ecNo); set('pARegNo', p.aRegNo); set('pPatta', p.pattaNo);
-  set('pBuyDate', p.buyDate); set('pSaleDate', p.saleDate); set('pSro', p.sro); set('pParent', p.parentDoc); set('pFmb', p.fmbNo); set('pEcPeriod', p.ecPeriod);
+  set('pBuyDate', p.buyDate); set('pSaleDate', p.saleDate); set('pSro', p.sro); set('pParent', p.parentDoc); set('pFmb', p.fmbNo); set('pSubDiv', p.subDiv); set('pEcPeriod', p.ecPeriod);
   set('pLandType', p.landType); set('pApproval', p.approvalNo); set('pTax', p.taxNo); set('pGuide', p.guideValue || '');
   set('pFrontage', p.frontage); set('pRoadW', p.roadWidth || ''); set('pW1Name', p.w1Name); set('pW1Phone', p.w1Phone); set('pW1Addr', p.w1Addr); set('pW2Name', p.w2Name); set('pW2Phone', p.w2Phone); set('pW2Addr', p.w2Addr);
   set('pDocNotes', p.docNotes); set('pNotes', p.notes);
@@ -550,7 +623,7 @@ async function saveProject() {
     sideAB: num('mAB'), sideBC: num('mBC'), sideCD: num('mCD'), sideDA: num('mDA'), diagAC: num('mAC'), sideUnit: $('mUnit').value,
     north: $('bN').value.trim(), south: $('bS').value.trim(), east: $('bE').value.trim(), west: $('bW').value.trim(),
     docNo: $('pDocNo').value.trim(), regDate: $('pRegDate').value, ecNo: $('pEcNo').value.trim(), aRegNo: $('pARegNo').value.trim(), pattaNo: $('pPatta').value.trim(),
-    buyDate: $('pBuyDate').value, saleDate: $('pSaleDate').value, sro: $('pSro').value.trim(), parentDoc: $('pParent').value.trim(), fmbNo: $('pFmb').value.trim(),
+    buyDate: $('pBuyDate').value, saleDate: $('pSaleDate').value, sro: $('pSro').value.trim(), parentDoc: $('pParent').value.trim(), fmbNo: $('pFmb').value.trim(), subDiv: $('pSubDiv').value.trim(),
     ecPeriod: $('pEcPeriod').value.trim(), landType: $('pLandType').value, approvalNo: $('pApproval').value.trim(), taxNo: $('pTax').value.trim(),
     guideValue: num('pGuide'),
     frontage: $('pFrontage').value, roadWidth: num('pRoadW'),
@@ -571,23 +644,25 @@ async function saveProject() {
   } catch (e) { console.error(e); $('projMsg').innerText = 'Save failed. Check security rules.'; }
   finally { $('saveProjBtn').disabled = false; }
 }
+const chipsLine = (p, pr) => { const L = LV[titleInfo(p).level]; return `<span class="chip ${L.c}">🛡️ ${L.l}</span> <span class="chip inf">📄 ${(p.docsHave || []).length}/${DOCTYPES.length}</span> <small>Profit <span class="${cls(pr)}">${inr(pr)}</span></small><br>`; };
 function renderProjects() {
   $('projList').innerHTML = ($('showArch').checked ? allProjects : projects).map(p => {
     const pr = profit(p), ar = !!p.archived;
     const map = p.lat != null ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">🗺 Map</a>` : '';
     return `<div class="item" style="${ar ? 'opacity:.6' : ''}"><div><b>${esc(p.name)}</b> <small>(${ar ? 'Archived' : esc(p.status)})</small><br>
       <small>${esc(p.village)}, ${esc(p.taluk)}, ${esc(p.district)} · Sy ${esc(p.surveyNo || '-')} · ${p.areaValue || 0} ${esc(p.areaUnit)} (${(sqft(p) / 435.6).toFixed(2)} cent)${map}</small><br>
+      ${chipsLine(p, pr)}<details><summary style="font-size:12px;color:#1565c0;cursor:pointer">More details</summary>
       ${(p.sideAB || p.sideBC || p.sideCD || p.sideDA) ? `<small>📐 AB ${p.sideAB || 0} · BC ${p.sideBC || 0} · CD ${p.sideCD || 0} · DA ${p.sideDA || 0} ${p.sideUnit === 'm' ? 'm' : 'ft'} · ${Math.round(sqft(p)).toLocaleString('en-IN')} sq ft</small><br>` : ''}
       ${(p.north || p.south || p.east || p.west) ? `<small>🧭 N: ${esc(p.north || '-')} · S: ${esc(p.south || '-')} · E: ${esc(p.east || '-')} · W: ${esc(p.west || '-')}</small><br>` : ''}
       ${(p.docNo || p.regDate || p.ecNo || p.aRegNo || p.pattaNo) ? `<small>📑 Doc ${esc(p.docNo || '-')} · Reg ${esc(p.regDate || '-')} · EC ${esc(p.ecNo || '-')} · A-Reg ${esc(p.aRegNo || '-')} · Patta ${esc(p.pattaNo || '-')}</small><br>` : ''}
       ${p.bfName ? `<small>🤝 From: ${esc(p.bfName)} ${esc(p.bfPhone || '')} ${esc(p.bfAddr || '')}</small><br>` : ''}
       ${p.stName ? `<small>🤝 To: ${esc(p.stName)} ${esc(p.stPhone || '')} ${esc(p.stAddr || '')}</small><br>` : ''}
-      ${(p.sro || p.parentDoc || p.fmbNo || p.landType || p.approvalNo || p.taxNo || p.buyDate || p.saleDate) ? `<small>🏛 ${[p.buyDate && 'Bought ' + p.buyDate, p.saleDate && 'Sold ' + p.saleDate, p.sro && 'SRO ' + p.sro, p.parentDoc && 'Parent ' + p.parentDoc, p.fmbNo && 'FMB ' + p.fmbNo, p.landType, p.approvalNo && 'Approval ' + p.approvalNo, p.taxNo && 'Tax ' + p.taxNo].filter(Boolean).map(esc).join(' · ')}</small><br>` : ''}
+      ${(p.sro || p.parentDoc || p.fmbNo || p.landType || p.approvalNo || p.taxNo || p.buyDate || p.saleDate) ? `<small>🏛 ${[p.buyDate && 'Bought ' + p.buyDate, p.saleDate && 'Sold ' + p.saleDate, p.sro && 'SRO ' + p.sro, p.parentDoc && 'Parent ' + p.parentDoc, p.fmbNo && 'FMB ' + p.fmbNo, p.subDiv && 'Sub-div ' + p.subDiv, p.landType, p.approvalNo && 'Approval ' + p.approvalNo, p.taxNo && 'Tax ' + p.taxNo].filter(Boolean).map(esc).join(' · ')}</small><br>` : ''}
       ${(p.frontage || p.roadWidth) ? `<small>🛣 ${esc(p.frontage || '')}${p.roadWidth ? ' · road ' + p.roadWidth + ' ft' : ''}</small><br>` : ''}
       ${(p.w1Name || p.w2Name) ? `<small>👥 Witness: ${[p.w1Name && [p.w1Name, p.w1Phone, p.w1Addr].filter(Boolean).join(' '), p.w2Name && [p.w2Name, p.w2Phone, p.w2Addr].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(' | ')}</small><br>` : ''}
       ${(p.docsHave || []).length ? `<small>✅ ${p.docsHave.length}/${DOCTYPES.length} docs: ${p.docsHave.map(esc).join(', ')}<br>⏳ Missing: ${DOCTYPES.filter(d => !p.docsHave.includes(d)).map(esc).join(', ')}</small><br>` : ''}
       ${(p.docNotes || p.notes) ? `<small>📝 ${esc([p.docNotes, p.notes].filter(Boolean).join(' · '))}</small><br>` : ''}
-      <small>Cost ${inr(cost(p))} · Sale ${inr(p.saleValue)} · Profit <span class="${cls(pr)}">${inr(pr)}</span></small></div>
+      <small>Cost ${inr(cost(p))} · Sale ${inr(p.saleValue)}</small></details></div>
       <div style="display:flex;flex-direction:column;gap:6px">${ar ? `<button class="sm" onclick="archiveProject('${p.id}',false)">▶ Restore</button>` : `<button class="sm" onclick="editProject('${p.id}')">✏️ Edit</button><button class="sm gray" onclick="archiveProject('${p.id}',true)">🗄 Archive</button>`}</div></div>`;
   }).join('') || '<small>No projects yet.</small>';
 }
@@ -728,6 +803,99 @@ async function doTransfer() {
     $('trModal').style.display = 'none';
   } catch (e) { console.error(e); alert('Transfer failed. Check security rules.'); }
 }
+/* ---------- TITLE VERIFICATION ---------- */
+const TSTEPS = [
+  ['Check the present title deed', 'Doc no., year, SRO, seller/buyer names, survey no., extent, four boundaries.'],
+  ['Find the Mother / Parent deed', 'The earlier deed through which the seller got the land.'],
+  ['Build the Chain of Title', 'List every owner in date order with no gaps (see the chain below).'],
+  ['Verify survey no. & sub-division', 'Match old and new survey numbers with Patta and FMB.'],
+  ['Compare extent & four boundaries', 'Deed vs deed vs ground. Explain any difference.'],
+  ['Check EC for the needed period', 'Sales, mortgages, releases. Get certified copies of key deeds.'],
+  ['Compare Patta & revenue records', 'Owner name, survey no., sub-division and extent.'],
+  ['Verify FMB & measure the land', 'Match FMB sketch and deed with the actual boundary on site.'],
+  ['Enquire court cases & other issues', 'Case, partition, injunction, mortgage, attachment, acquisition.'],
+  ['Get Advocate title opinion', 'Written legal opinion before you pay the advance.']];
+const LITS = [['court', 'Court case'], ['partition', 'Partition dispute'], ['injunction', 'Injunction / status quo'], ['mortgage', 'Bank mortgage'], ['attachment', 'Attachment'], ['acq', 'Govt acquisition / notice']];
+const LV = { safe: { c: 'ok', l: 'Title OK' }, review: { c: 'wn', l: 'Review' }, risk: { c: 'rk', l: 'Risk' } };
+$('tkLits').innerHTML = LITS.map(([k, l]) => `<div class="fg"><label>${l}</label><select id="lit_${k}"><option>Not checked</option><option>No</option><option>Yes</option></select></div>`).join('');
+const norm = x => (x || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const chainOf = p => ((p.title || {}).chain || []).filter(c => !c.void).sort((a, b) => (+a.year || 0) - (+b.year || 0));
+function chainWarns(p) {
+  const c = chainOf(p), w = [];
+  for (let i = 1; i < c.length; i++) {
+    if (norm(c[i - 1].to) !== norm(c[i].from)) w.push({ lv: 'risk', text: `Chain broken: ${c[i - 1].year} ends with "${c[i - 1].to}" but ${c[i].year} starts from "${c[i].from}"` });
+    if (c[i - 1].extent && c[i].extent && norm(c[i - 1].extent) !== norm(c[i].extent)) w.push({ lv: 'info', text: `Extent changed ${c[i - 1].extent} → ${c[i].extent} (${c[i].year}). Confirm sub-division or part sale.` });
+    if (c[i - 1].survey && c[i].survey && norm(c[i - 1].survey) !== norm(c[i].survey)) w.push({ lv: 'info', text: `Survey no. changed ${c[i - 1].survey} → ${c[i].survey} (${c[i].year}). Match with Patta and FMB.` });
+  }
+  if (c.length && p.bfName && norm(c[c.length - 1].to) !== norm(p.bfName)) w.push({ lv: 'warn', text: `Last owner in chain ("${c[c.length - 1].to}") is not the seller ("${p.bfName}").` });
+  return w;
+}
+function titleInfo(p) {
+  const t = p.title || {}, st = t.steps || {}, done = TSTEPS.filter((_, i) => st['s' + i]).length, w = chainWarns(p);
+  if (!chainOf(p).length) w.push({ lv: 'warn', text: 'Chain of Title not built yet' });
+  if (!p.parentDoc) w.push({ lv: 'warn', text: 'Mother / parent deed not recorded' + (t.parentWhy ? ` (reason: ${t.parentWhy}) — get a legal view` : '') });
+  if (!p.ecPeriod) w.push({ lv: 'info', text: 'EC period not recorded' });
+  const lit = t.lit || {}, yes = LITS.filter(([k]) => lit[k] === 'Yes').map(x => x[1]);
+  if (yes.length) w.push({ lv: 'risk', text: 'Issue found: ' + yes.join(', ') });
+  else if (LITS.some(([k]) => !lit[k] || lit[k] === 'Not checked')) w.push({ lv: 'warn', text: 'Court / mortgage enquiry not completed' });
+  const op = t.advOpinion || 'Pending';
+  if (op === 'Not clear') w.push({ lv: 'risk', text: 'Advocate says the title is not clear' });
+  else if (op === 'Pending') w.push({ lv: 'warn', text: 'Advocate title opinion pending' });
+  else if (op === 'Clear with conditions') w.push({ lv: 'warn', text: 'Advocate opinion has conditions: ' + (t.advNotes || 'see notes') });
+  return { done, warns: w, level: w.some(x => x.lv === 'risk') ? 'risk' : (done < 10 || w.some(x => x.lv === 'warn')) ? 'review' : 'safe' };
+}
+function alertsFor(p) {
+  const a = titleInfo(p).warns.filter(w => w.lv !== 'info'), f = finOf(p.id), bal = (p.purchaseCost || 0) - (f.advance || 0);
+  if (f.projectId && bal > 0 && p.status !== 'Sold') a.push({ lv: 'info', text: `Balance due ${inr(bal)}` });
+  if (f.loanStatus === 'Active') a.push({ lv: 'info', text: `Loan active ${inr(f.loanAmount)}${f.mortgaged === 'Yes' ? ' · land mortgaged' : ''}` });
+  return a;
+}
+function loadTitle() {
+  const p = projects.find(x => x.id === $('tkProject').value), t = (p && p.title) || {}, set = (i, v) => $(i).value = v ?? '';
+  $('tkSteps').innerHTML = TSTEPS.map((s, i) => `<label class="stp"><input type="checkbox" class="tstep" data-i="${i}" ${(t.steps || {})['s' + i] ? 'checked' : ''}><span><b>${i + 1}. ${s[0]}</b><br><small>${s[1]}</small></span></label>`).join('');
+  LITS.forEach(([k]) => set('lit_' + k, (t.lit || {})[k] || 'Not checked'));
+  set('tkLitNotes', t.litNotes); set('tkParentWhy', t.parentWhy); set('tkParentNotes', t.parentNotes);
+  set('tkAdvName', t.advName); set('tkAdvDate', t.advDate); set('tkAdvOpinion', t.advOpinion || 'Pending'); set('tkAdvNotes', t.advNotes);
+  renderTitleSummary();
+}
+function renderTitleSummary() {
+  const p = projects.find(x => x.id === $('tkProject').value);
+  if (!p) { $('tkScore').innerHTML = '<small>Add a project first.</small>'; $('tkChain').innerHTML = ''; return; }
+  const ti = titleInfo(p), L = LV[ti.level], cc = { risk: ['rk', 'Risk'], warn: ['wn', 'Check'], info: ['inf', 'Info'] };
+  $('tkScore').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:18px">${ti.done}/10 steps done</b><span class="chip ${L.c}">${L.l}</span></div><div class="pg"><i style="width:${ti.done * 10}%"></i></div>` +
+    ti.warns.map(w => `<div style="font-size:13px;margin-top:6px"><span class="chip ${cc[w.lv][0]}">${cc[w.lv][1]}</span> ${esc(w.text)}</div>`).join('');
+  const line = chainOf(p), all = (p.title || {}).chain || [];
+  $('tkChain').innerHTML = (line.length ? `<div style="font-weight:700;margin-bottom:8px">${[line[0].from, ...line.map(c => c.to)].map(esc).join(' → ')}</div>` : '<small>No owners added yet. Start with the oldest owner.</small>') +
+    all.map((c, i) => ({ c, i })).sort((a, b) => (+a.c.year || 0) - (+b.c.year || 0)).map(({ c, i }) => `<div class="item" style="${c.void ? 'opacity:.5' : ''}"><div><b>${esc(c.year)}</b> · ${esc(c.type)}${c.void ? ' (void)' : ''}<br><small>${esc(c.from)} → ${esc(c.to)}</small><br><small>Doc ${esc(c.doc || '-')} · SRO ${esc(c.sro || '-')} · Sy ${esc(c.survey || '-')} · ${esc(c.extent || '-')}</small></div><button class="sm gray" onclick="voidChain(${i})">${c.void ? '▶ Restore' : '🚫 Void'}</button></div>`).join('');
+}
+async function addChain() {
+  const p = projects.find(x => x.id === $('tkProject').value); if (!p) return alert('Select a project first.');
+  const g = i => $(i).value.trim(), e = { year: g('tcYear'), type: $('tcType').value, from: g('tcFrom'), to: g('tcTo'), doc: g('tcDoc'), sro: g('tcSro'), survey: g('tcSurvey'), extent: g('tcExtent'), by: auth.currentUser.email };
+  if (!e.year || !e.from || !e.to) return alert('Year, From and To are required.');
+  try {
+    await db.collection('projects').doc(p.id).update({ 'title.chain': [...((p.title || {}).chain || []), e] });
+    writeAuditLog('ADD_CHAIN_LINK', `${e.from} → ${e.to} (${e.year})`, p.id);
+    ['tcYear', 'tcFrom', 'tcTo', 'tcDoc', 'tcSro', 'tcSurvey', 'tcExtent'].forEach(i => $(i).value = '');
+  } catch (x) { console.error(x); alert('Save failed. Check security rules.'); }
+}
+async function voidChain(i) {
+  const p = projects.find(x => x.id === $('tkProject').value); if (!p) return;
+  const arr = [...((p.title || {}).chain || [])]; arr[i] = { ...arr[i], void: !arr[i].void };
+  try { await db.collection('projects').doc(p.id).update({ 'title.chain': arr }); writeAuditLog(arr[i].void ? 'VOID_CHAIN_LINK' : 'RESTORE_CHAIN_LINK', `${arr[i].from} → ${arr[i].to}`, p.id); } catch (x) { alert('Failed.'); }
+}
+async function saveTitle() {
+  const p = projects.find(x => x.id === $('tkProject').value); if (!p) return alert('Select a project first.');
+  const steps = {}; document.querySelectorAll('.tstep').forEach(c => steps['s' + c.dataset.i] = c.checked);
+  const lit = {}; LITS.forEach(([k]) => lit[k] = $('lit_' + k).value);
+  const v = i => $(i).value.trim();
+  try {
+    await db.collection('projects').doc(p.id).update({ 'title.steps': steps, 'title.lit': lit, 'title.litNotes': v('tkLitNotes'), 'title.parentWhy': $('tkParentWhy').value, 'title.parentNotes': v('tkParentNotes'),
+      'title.advName': v('tkAdvName'), 'title.advDate': $('tkAdvDate').value, 'title.advOpinion': $('tkAdvOpinion').value, 'title.advNotes': v('tkAdvNotes') });
+    writeAuditLog('EDIT_TITLE_CHECK', p.name, p.id);
+    $('tkMsg').innerText = '✅ Saved to cloud'; setTimeout(() => $('tkMsg').innerText = '', 3000);
+  } catch (x) { console.error(x); $('tkMsg').innerText = 'Save failed. Check security rules.'; }
+}
+
 /* ---------- FINANCE ---------- */
 function loadFin() {
   const f = finOf($('fProject').value), set = (i, v) => $(i).value = v ?? '';
@@ -771,11 +939,17 @@ function renderLogs() {
 
 /* ---------- DASHBOARD ---------- */
 function renderDash() {
-  const T = projects.reduce((a, p) => ({ area: a.area + sqft(p), cost: a.cost + cost(p), sale: a.sale + (p.saleValue || 0), pr: a.pr + profit(p) }), { area: 0, cost: 0, sale: 0, pr: 0 });
+  const T = projects.reduce((a, p) => ({ area: a.area + sqft(p), cost: a.cost + cost(p), pr: a.pr + profit(p) }), { area: 0, cost: 0, pr: 0 });
   const k = (v, l, c = '') => `<div class="kpi"><b class="${c}">${v}</b><span>${l}</span></div>`;
-  $('kpis').innerHTML = k(projects.length, 'Projects') + k((T.area / 43560).toFixed(2) + ' ac', 'Total Area (' + Math.round(T.area).toLocaleString('en-IN') + ' sq ft)')
-    + k(inr(T.cost), 'Total Investment') + k(inr(T.sale), 'Total Sale Value') + k(inr(T.pr), 'Net Profit', cls(T.pr))
-    + k(new Set(holders.filter(act).map(h => h.name.toLowerCase())).size, 'Shareholders');
+  $('kpis').innerHTML = k(projects.length, 'Projects') + k((T.area / 435.6).toFixed(1) + ' cent', 'Total land') + k(inr(T.cost), 'Invested') + k(inr(T.pr), 'Net profit', cls(T.pr));
+  const rank = { risk: 0, warn: 1, info: 2 }, chip = { risk: ['rk', 'Risk'], warn: ['wn', 'Check'], info: ['inf', 'Info'] };
+  const al = projects.flatMap(p => alertsFor(p).map(a => ({ ...a, p }))).sort((a, b) => rank[a.lv] - rank[b.lv]);
+  $('alerts').innerHTML = al.slice(0, 12).map(a => `<div class="item" onclick="goTitle('${a.p.id}')" style="cursor:pointer"><span><b>${esc(a.p.name)}</b><br><small>${esc(a.text)}</small></span><span class="chip ${chip[a.lv][0]}">${chip[a.lv][1]}</span></div>`).join('') + (al.length > 12 ? `<small>+${al.length - 12} more…</small>` : '') || '<small>✅ Nothing needs attention.</small>';
+  $('dashCards').innerHTML = projects.map(p => { const ti = titleInfo(p), L = LV[ti.level], pr = profit(p);
+    return `<div class="pcard" onclick="goTitle('${p.id}')"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(p.name)}</b><span class="chip ${L.c}">${L.l}</span></div>
+     <small>📍 ${esc(p.village)}, ${esc(p.taluk)} · ${(sqft(p) / 435.6).toFixed(2)} cent · ${esc(p.status)}</small><br>
+     <small>🛡️ Title ${ti.done}/10 · 📄 Docs ${(p.docsHave || []).length}/${DOCTYPES.length} · Profit <span class="${cls(pr)}">${inr(pr)}</span></small>
+     <div class="pg"><i style="width:${ti.done * 10}%"></i></div></div>`; }).join('') || '<small>No projects yet. Tap Projects to add one.</small>';
   const max = Math.max(1, ...projects.map(p => Math.abs(profit(p))));
   $('profitBars').innerHTML = projects.map(p => { const v = profit(p);
     return `<div class="bar"><span>${esc(p.name)}</span><i style="width:${Math.abs(v) / max * 55}%;background:${v < 0 ? '#d32f2f' : '#2e7d32'}"></i><small>${inr(v)}</small></div>`; }).join('') || '<small>No data.</small>';
