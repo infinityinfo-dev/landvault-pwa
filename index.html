@@ -250,7 +250,7 @@ td.n,th.n{text-align:right}
    <div class="fg"><label>Project</label><select id="tkProject" onchange="loadTitle()"></select></div>
    <div id="tkScore"></div>
   </div>
-  <div class="card"><h2>✅ 10-step checklist</h2><div id="tkSteps"></div></div>
+  <div class="card"><h2>✅ Checklist (advocate opinion is optional)</h2><div id="tkSteps"></div></div>
   <div class="card"><h2>🔗 Chain of Title (who owned it, in order)</h2><div id="tkChain"></div>
    <details class="sec"><summary>➕ Add an owner link</summary>
     <div class="grid">
@@ -814,8 +814,8 @@ const TSTEPS = [
   ['Compare Patta & revenue records', 'Owner name, survey no., sub-division and extent.'],
   ['Verify FMB & measure the land', 'Match FMB sketch and deed with the actual boundary on site.'],
   ['Enquire court cases & other issues', 'Case, partition, injunction, mortgage, attachment, acquisition.'],
-  ['Get Advocate title opinion', 'Written legal opinion before you pay the advance.']];
-const LITS = [['court', 'Court case'], ['partition', 'Partition dispute'], ['injunction', 'Injunction / status quo'], ['mortgage', 'Bank mortgage'], ['attachment', 'Attachment'], ['acq', 'Govt acquisition / notice']];
+  ['Get Advocate title opinion (optional)', 'Written legal opinion before you pay the advance. Recommended, not compulsory.', 1]];
+const LITS = [['court', 'Court case'], ['partition', 'Partition dispute'], ['injunction', 'Injunction / status quo'], ['mortgage', 'Bank mortgage (optional)'], ['attachment', 'Attachment'], ['acq', 'Govt acquisition / notice']];
 const LV = { safe: { c: 'ok', l: 'Title OK' }, review: { c: 'wn', l: 'Review' }, risk: { c: 'rk', l: 'Risk' } };
 $('tkLits').innerHTML = LITS.map(([k, l]) => `<div class="fg"><label>${l}</label><select id="lit_${k}"><option>Not checked</option><option>No</option><option>Yes</option></select></div>`).join('');
 const norm = x => (x || '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -831,18 +831,18 @@ function chainWarns(p) {
   return w;
 }
 function titleInfo(p) {
-  const t = p.title || {}, st = t.steps || {}, done = TSTEPS.filter((_, i) => st['s' + i]).length, w = chainWarns(p);
+  const t = p.title || {}, st = t.steps || {}, need = TSTEPS.filter(x => !x[2]).length, done = TSTEPS.filter((x, i) => !x[2] && st['s' + i]).length, w = chainWarns(p);
   if (!chainOf(p).length) w.push({ lv: 'warn', text: 'Chain of Title not built yet' });
   if (!p.parentDoc) w.push({ lv: 'warn', text: 'Mother / parent deed not recorded' + (t.parentWhy ? ` (reason: ${t.parentWhy}) — get a legal view` : '') });
   if (!p.ecPeriod) w.push({ lv: 'info', text: 'EC period not recorded' });
-  const lit = t.lit || {}, yes = LITS.filter(([k]) => lit[k] === 'Yes').map(x => x[1]);
+  const lit = t.lit || {}, yes = LITS.filter(([k]) => k !== 'mortgage' && lit[k] === 'Yes').map(x => x[1]);
   if (yes.length) w.push({ lv: 'risk', text: 'Issue found: ' + yes.join(', ') });
-  else if (LITS.some(([k]) => !lit[k] || lit[k] === 'Not checked')) w.push({ lv: 'warn', text: 'Court / mortgage enquiry not completed' });
+  else if (LITS.some(([k]) => k !== 'mortgage' && (!lit[k] || lit[k] === 'Not checked'))) w.push({ lv: 'warn', text: 'Court / dispute enquiry not completed' });
+  if (lit.mortgage === 'Yes') w.push({ lv: 'warn', text: 'Land has a bank mortgage. Get it cleared before you buy.' });
   const op = t.advOpinion || 'Pending';
   if (op === 'Not clear') w.push({ lv: 'risk', text: 'Advocate says the title is not clear' });
-  else if (op === 'Pending') w.push({ lv: 'warn', text: 'Advocate title opinion pending' });
   else if (op === 'Clear with conditions') w.push({ lv: 'warn', text: 'Advocate opinion has conditions: ' + (t.advNotes || 'see notes') });
-  return { done, warns: w, level: w.some(x => x.lv === 'risk') ? 'risk' : (done < 10 || w.some(x => x.lv === 'warn')) ? 'review' : 'safe' };
+  return { done, need, warns: w, level: w.some(x => x.lv === 'risk') ? 'risk' : (done < need || w.some(x => x.lv === 'warn')) ? 'review' : 'safe' };
 }
 function alertsFor(p) {
   const a = titleInfo(p).warns.filter(w => w.lv !== 'info'), f = finOf(p.id), bal = (p.purchaseCost || 0) - (f.advance || 0);
@@ -862,7 +862,7 @@ function renderTitleSummary() {
   const p = projects.find(x => x.id === $('tkProject').value);
   if (!p) { $('tkScore').innerHTML = '<small>Add a project first.</small>'; $('tkChain').innerHTML = ''; return; }
   const ti = titleInfo(p), L = LV[ti.level], cc = { risk: ['rk', 'Risk'], warn: ['wn', 'Check'], info: ['inf', 'Info'] };
-  $('tkScore').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:18px">${ti.done}/10 steps done</b><span class="chip ${L.c}">${L.l}</span></div><div class="pg"><i style="width:${ti.done * 10}%"></i></div>` +
+  $('tkScore').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:18px">${ti.done}/${ti.need} required steps done</b><span class="chip ${L.c}">${L.l}</span></div><div class="pg"><i style="width:${ti.done / ti.need * 100}%"></i></div>` +
     ti.warns.map(w => `<div style="font-size:13px;margin-top:6px"><span class="chip ${cc[w.lv][0]}">${cc[w.lv][1]}</span> ${esc(w.text)}</div>`).join('');
   const line = chainOf(p), all = (p.title || {}).chain || [];
   $('tkChain').innerHTML = (line.length ? `<div style="font-weight:700;margin-bottom:8px">${[line[0].from, ...line.map(c => c.to)].map(esc).join(' → ')}</div>` : '<small>No owners added yet. Start with the oldest owner.</small>') +
@@ -948,8 +948,8 @@ function renderDash() {
   $('dashCards').innerHTML = projects.map(p => { const ti = titleInfo(p), L = LV[ti.level], pr = profit(p);
     return `<div class="pcard" onclick="goTitle('${p.id}')"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(p.name)}</b><span class="chip ${L.c}">${L.l}</span></div>
      <small>📍 ${esc(p.village)}, ${esc(p.taluk)} · ${(sqft(p) / 435.6).toFixed(2)} cent · ${esc(p.status)}</small><br>
-     <small>🛡️ Title ${ti.done}/10 · 📄 Docs ${(p.docsHave || []).length}/${DOCTYPES.length} · Profit <span class="${cls(pr)}">${inr(pr)}</span></small>
-     <div class="pg"><i style="width:${ti.done * 10}%"></i></div></div>`; }).join('') || '<small>No projects yet. Tap Projects to add one.</small>';
+     <small>🛡️ Title ${ti.done}/${ti.need} · 📄 Docs ${(p.docsHave || []).length}/${DOCTYPES.length} · Profit <span class="${cls(pr)}">${inr(pr)}</span></small>
+     <div class="pg"><i style="width:${ti.done / ti.need * 100}%"></i></div></div>`; }).join('') || '<small>No projects yet. Tap Projects to add one.</small>';
   const max = Math.max(1, ...projects.map(p => Math.abs(profit(p))));
   $('profitBars').innerHTML = projects.map(p => { const v = profit(p);
     return `<div class="bar"><span>${esc(p.name)}</span><i style="width:${Math.abs(v) / max * 55}%;background:${v < 0 ? '#d32f2f' : '#2e7d32'}"></i><small>${inr(v)}</small></div>`; }).join('') || '<small>No data.</small>';
